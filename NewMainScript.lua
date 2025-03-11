@@ -9,24 +9,27 @@ local delfile = delfile or function(file)
 end
 
 local function downloadFile(path, func)
-	if not isfile(path) then
-		local suc, res = pcall(function()
-local repo = "QP-Offcial/VapeV4ForRoblox" -- Default repo
-if path == "newvape/main.lua" or path == "newvape/games/universal.lua" or path == "newvape/newmainscript.lua" then
-    repo = "wrealaero/AeroV4" -- Use your GitHub for these specific files
-end
+    if not isfile(path) then
+        local repo = "QP-Offcial/VapeV4ForRoblox"  -- Default repo
+        local filename = path:gsub("newvape/", "")
 
-return game:HttpGet('https://raw.githubusercontent.com/'..repo..'/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
-		end)
-		if not suc or res == '404: Not Found' then
-			error(res)
-		end
-		if path:find('.lua') then
-			res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
-		end
-		writefile(path, res)
-	end
-	return (func or readfile)(path)
+        -- Override repo for specific files
+        if filename == "main.lua" or filename == "newmainscript.lua" or filename == "universal.lua" then
+            repo = "wrealaero/AeroV4"  -- Your GitHub
+        end
+
+        local suc, res = pcall(function()
+            return game:HttpGet('https://raw.githubusercontent.com/'..repo..'/'..readfile('newvape/profiles/commit.txt')..'/'..filename, true)
+        end)
+        if not suc or res == '404: Not Found' then
+            error(res)
+        end
+        if path:find('.lua') then
+            res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
+        end
+        writefile(path, res)
+    end
+    return (func or readfile)(path)
 end
 
 local function wipeFolder(path)
