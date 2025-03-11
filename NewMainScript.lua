@@ -8,42 +8,41 @@ local delfile = delfile or function(file)
 	writefile(file, '')
 end
 
-local isfile = isfile or function(file)
-    local suc, res = pcall(function() return readfile(file) end)
-    return suc and res ~= nil and res ~= ""
-end
-local function downloadFile(url, path)
-    local suc, res = pcall(function() return game:HttpGet(url, true) end)
-    if suc and res and res ~= "404: Not Found" then
-        writefile(path, res)
-        print("Downloaded: " .. path)
-    else
-        warn("Failed to download: " .. path .. " | Error: " .. tostring(res))
-    end
-end
-
--- Create necessary folders
-for _, folder in {"newvape", "newvape/games", "newvape/profiles", "newvape/assets", "newvape/libraries", "newvape/guis"} do
-    if not isfolder(folder) then
-        makefolder(folder)
-    end
+local function downloadFile(path, func)
+	if not isfile(path) then
+		local suc, res = pcall(function()
+			return game:HttpGet('https://raw.githubusercontent.com/wrealaero/AeroV4/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
+		end)
+		if not suc or res == '404: Not Found' then
+			error(res)
+		end
+		if path:find('.lua') then
+			res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
+		end
+		writefile(path, res)
+	end
+	return (func or readfile)(path)
 end
 
--- Download main.lua from your GitHub
-local repo = "wrealaero/AeroV4"
-local url = "https://raw.githubusercontent.com/" .. repo .. "/main/main.lua"
-downloadFile(url, "newvape/main.lua")
+local function wipeFolder(path)
+	if not isfolder(path) then return end
+	for _, file in listfiles(path) do
+		if file:find('loader') then continue end
+		if isfile(file) and select(1, readfile(file):find('--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.')) == 1 then
+			delfile(file)
+		end
+	end
+end
 
--- Execute main.lua
-if isfile("newvape/main.lua") then
-    loadstring(readfile("newvape/main.lua"))()
-else
-    warn("main.lua was not downloaded successfully.")
+for _, folder in {'newvape', 'newvape/games', 'newvape/profiles', 'newvape/assets', 'newvape/libraries', 'newvape/guis'} do
+	if not isfolder(folder) then
+		makefolder(folder)
+	end
 end
 
 if not shared.VapeDeveloper then
 	local _, subbed = pcall(function()
-		return game:HttpGet('https://github.com/QP-Offcial/VapeV4ForRoblox')
+		return game:HttpGet('https://github.com/wrealaero/AeroV4')
 	end)
 	local commit = subbed:find('currentOid')
 	commit = commit and subbed:sub(commit + 13, commit + 52) or nil
