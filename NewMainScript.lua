@@ -40,7 +40,7 @@ for _, folder in {'newvape', 'newvape/games', 'newvape/profiles', 'newvape/asset
 	end
 end
 
-if not shared.VapeDeveloper then
+if shared.VapeDeveloper then
 	local _, subbed = pcall(function()
 		return game:HttpGet('https://github.com/wrealaero/AeroV4')
 	end)
