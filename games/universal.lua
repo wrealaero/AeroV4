@@ -1,3 +1,7 @@
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 local loadstring = function(...)
 	local res, err = loadstring(...)
 	if err and vape then
@@ -32,6 +36,12 @@ end
 local queue_on_teleport = queue_on_teleport or function() end
 local cloneref = cloneref or function(obj)
 	return obj
+end
+local function connectEvent(object, eventName, func)
+	object[eventName]:Connect(func)
+end
+local function namecallEvent(object, eventName, ...)
+	task.spawn(object[eventName], object, ...)
 end
 
 local playersService = cloneref(game:GetService('Players'))
@@ -463,7 +473,7 @@ run(function()
 			if self:getplayer(args[1]) then
 				table.remove(args, 1)
 				for cmd, func in self.commands do
-					if msg:sub(1, cmd:len() + 1):lower() == ';'..cmd:lower() then
+					if msg:sub(1, cmd:len() + 1):lower() == '!'..cmd:lower() then
 						func(args, plr)
 						return true
 					end
@@ -565,12 +575,12 @@ run(function()
 	function whitelist:update(first)
 		local suc = pcall(function()
 			local _, subbed = pcall(function()
-				return game:HttpGet('https://github.com/wrealaero/whitelists')
+				return game:HttpGet('https://github.com/xsinew/whitelists')
 			end)
 			local commit = subbed:find('currentOid')
 			commit = commit and subbed:sub(commit + 13, commit + 52) or nil
 			commit = commit and #commit == 40 and commit or 'main'
-			whitelist.textdata = game:HttpGet('https://raw.githubusercontent.com/wrealaero/whitelists/'..commit..'/PlayerWhitelist.json', true)
+			whitelist.textdata = game:HttpGet('https://raw.githubusercontent.com/xsinew/Whitelists/refs/heads/main/PlayerWhitelist.json', true)
 		end)
 		if not suc or not hash or not whitelist.get then return true end
 		whitelist.loaded = true
@@ -611,21 +621,30 @@ run(function()
 			end
 
 			if whitelist.textdata ~= whitelist.olddata then
-				if whitelist.data.Announcement.expiretime > os.time() then
-					local targets = whitelist.data.Announcement.targets
-					targets = targets == 'all' and {tostring(lplr.UserId)} or targets:split(',')
-
-					if table.find(targets, tostring(lplr.UserId)) then
-						local hint = Instance.new('Hint')
-						hint.Text = 'VAPE ANNOUNCEMENT: '..whitelist.data.Announcement.text
-						hint.Parent = workspace
-						game:GetService('Debris'):AddItem(hint, 20)
-					end
-				end
 				whitelist.olddata = whitelist.textdata
+
+				local suc, res = pcall(function()
+					return httpService:JSONDecode(whitelist.textdata)
+				end)
+	
+				whitelist.data = suc and type(res) == 'table' and res or whitelist.data
+				whitelist.localprio = whitelist:get(lplr)
+
 				pcall(function()
 					writefile('newvape/profiles/whitelist.json', whitelist.textdata)
 				end)
+			end
+
+			if whitelist.data.Announcement.expiretime > os.time() then
+				local targets = whitelist.data.Announcement.targets
+				targets = targets == 'all' and {tostring(lplr.UserId)} or targets:split(',')
+
+				if table.find(targets, tostring(lplr.UserId)) then
+					local hint = Instance.new('Hint')
+					hint.Text = 'VAPE ANNOUNCEMENT: '..whitelist.data.Announcement.text
+					hint.Parent = workspace
+					game:GetService('Debris'):AddItem(hint, 20)
+				end
 			end
 
 			if whitelist.data.KillVape then
@@ -2347,6 +2366,8 @@ run(function()
 end)
 	
 run(function()
+	local KillauraVisualThread
+	local KillauraVisualColorPicker
 	local Killaura
 	local Targets
 	local CPS
@@ -2494,7 +2515,72 @@ run(function()
 		Max = 10,
 		Default = 10
 	})
-	Mouse = Killaura:CreateToggle({Name = 'Require mouse down'})
+	Color = Killaura:CreateColorSlider({
+		Name = 'Color',
+		DefaultOpacity = 0.5,
+		Function = function(h, s, v, o)
+			if VisualizerPart then
+				VisualizerPart.Color = Color3.fromHSV(h, s, v)
+				VisualizerPart.Transparency = 1 - o
+			end
+		end
+	})
+	Killaura:CreateToggle({
+		Name = 'Visualizer',
+		Function = function(callback)
+			KillauraVisualColorPicker.Object.Visible = callback
+			local VisualizerPart
+			local function createVisualizer(player)
+				if workspace.CurrentCamera:FindFirstChild("XSI_VISUAL") then
+					workspace.CurrentCamera:FindFirstChild("XSI_VISUAL"):Destroy()
+				end
+				local Visualizer = Instance.new("MeshPart")
+				Visualizer.MeshId = "rbxassetid://3726303797"
+				Visualizer.Name = "XSI_VISUAL"
+				Visualizer.CanCollide = false
+				Visualizer.Anchored = true
+				Visualizer.Material = Enum.Material.Neon
+				Visualizer.Size = Vector3.new(10 * 1, 0.01, 10 * 1)
+				Visualizer.Color = Color3.fromHSV(KillauraVisualColorPicker.Hue, KillauraVisualColorPicker.Sat, KillauraVisualColorPicker.Value)
+				Visualizer.Parent = workspace.CurrentCamera
+	
+				local function updatePosition()
+					if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+						if _G.AntiHitClone then
+							Visualizer.Position = _G.AntiHitClone.HumanoidRootPart.Position - Vector3.new(0, 2.9, 0)
+						else
+							Visualizer.Position = player.Character.HumanoidRootPart.Position - Vector3.new(0, 2.9, 0)
+						end
+					end
+				end
+				game:GetService("RunService").Heartbeat:Connect(updatePosition)
+	
+				local function updateColor()
+					Visualizer.Color = Color3.fromHSV(KillauraVisualColorPicker.Hue, KillauraVisualColorPicker.Sat, KillauraVisualColorPicker.Value)
+				end
+				game:GetService("RunService").Heartbeat:Connect(updateColor)
+	
+				return Visualizer
+			end
+	
+			local player = game.Players.LocalPlayer
+			if callback and not VisualizerPart then
+				VisualizerPart = createVisualizer(player)
+			end
+	
+			local function cleanVisualizer()
+				if VisualizerPart then
+					VisualizerPart:Destroy()
+					VisualizerPart = nil
+				end
+			end
+	
+			if not callback then
+				cleanVisualizer()
+			end
+		end
+	})
+	Mouse = Killaura:CreateToggle({Name = 'Require mouse down AAA'})
 	Lunge = Killaura:CreateToggle({Name = 'Sword lunge only'})
 	Killaura:CreateToggle({
 		Name = 'Show target',
