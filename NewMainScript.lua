@@ -8,38 +8,37 @@ local delfile = delfile or function(file)
 	writefile(file, '')
 end
 
-local function downloadFile(path, func)
-    if not isfile(path) then
-        local repo = "QP-Offcial/VapeV4ForRoblox"  -- Default repo
-        local filename = path:gsub("newvape/", "")
-
-        -- Override repo for specific files
-        if filename == "main.lua" or filename == "NewMainScript.lua" or filename == "universal.lua" then
-            repo = "wrealaero/AeroV4"  -- Your GitHub
-        end
-
-        -- Use "main" if commit.txt is missing
-        local commit = isfile("newvape/profiles/commit.txt") and readfile("newvape/profiles/commit.txt") or "main"
-
-        -- Construct URL
-        local url = "https://raw.githubusercontent.com/"..repo.."/"..commit.."/"..filename
-        print("Downloading: " .. url)  -- Debug print
-
-        -- Try to fetch the file
-        local suc, res = pcall(function()
-            return game:HttpGet(url, true)
-        end)
-
-        -- If it fails, print error
-        if not suc or res == "404: Not Found" or res == "" then
-            warn("Failed to download: " .. filename .. " | Error: " .. tostring(res))
-            return
-        end
-
-        -- Save the file
+local isfile = isfile or function(file)
+    local suc, res = pcall(function() return readfile(file) end)
+    return suc and res ~= nil and res ~= ""
+end
+local function downloadFile(url, path)
+    local suc, res = pcall(function() return game:HttpGet(url, true) end)
+    if suc and res and res ~= "404: Not Found" then
         writefile(path, res)
+        print("Downloaded: " .. path)
+    else
+        warn("Failed to download: " .. path .. " | Error: " .. tostring(res))
     end
-    return (func or readfile)(path)
+end
+
+-- Create necessary folders
+for _, folder in {"newvape", "newvape/games", "newvape/profiles", "newvape/assets", "newvape/libraries", "newvape/guis"} do
+    if not isfolder(folder) then
+        makefolder(folder)
+    end
+end
+
+-- Download main.lua from your GitHub
+local repo = "wrealaero/AeroV4"
+local url = "https://raw.githubusercontent.com/" .. repo .. "/main/main.lua"
+downloadFile(url, "newvape/main.lua")
+
+-- Execute main.lua
+if isfile("newvape/main.lua") then
+    loadstring(readfile("newvape/main.lua"))()
+else
+    warn("main.lua was not downloaded successfully.")
 end
 
 if not shared.VapeDeveloper then
