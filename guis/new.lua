@@ -108,7 +108,6 @@ local getcustomassets = {
 	['newvape/assets/new/rendertab.png'] = 'rbxassetid://14397373458',
 	['newvape/assets/new/search.png'] = 'rbxassetid://14425646684',
 	['newvape/assets/new/expandicon.png'] = 'rbxassetid://14368353032',
-	['newvape/assets/new/targetinfoicon.png'] = 'rbxassetid://14368354234',
 	['newvape/assets/new/targetnpc1.png'] = 'rbxassetid://14497400332',
 	['newvape/assets/new/targetnpc2.png'] = 'rbxassetid://14497402744',
 	['newvape/assets/new/targetplayers1.png'] = 'rbxassetid://14497396015',
@@ -6401,27 +6400,6 @@ VapeLabelSorter.Parent = VapeLabelHolder
 --[[
 	Target Info
 ]]
-
-local targetinfo
-local targetinfoobj
-local targetinfobcolor
-targetinfoobj = mainapi:CreateOverlay({
-	Name = 'Target Info',
-	Icon = getcustomasset('newvape/assets/new/targetinfoicon.png'),
-	Size = UDim2.fromOffset(14, 14),
-	Position = UDim2.fromOffset(12, 14),
-	CategorySize = 240,
-	Function = function(callback)
-		if callback then
-			task.spawn(function()
-				repeat
-					targetinfo:UpdateInfo()
-					task.wait()
-				until not targetinfoobj.Button or not targetinfoobj.Button.Enabled
-			end)
-		end
-	end
-})
 
 local targetinfobkg = Instance.new('Frame')
 targetinfobkg.Size = UDim2.fromOffset(240, 89)
