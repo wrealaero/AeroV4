@@ -33,7 +33,13 @@ local playersService = cloneref(game:GetService('Players'))
 local function downloadFile(path, func)
 	if not isfile(path) then
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/QP-Offcial/VapeV4ForRoblox/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
+local repo = "QP-Offcial/VapeV4ForRoblox" -- Default repo
+if path == "newvape/main.lua" or path == "newvape/games/universal.lua" or path == "newvape/newmainscript.lua" then
+    repo = "wrealaero/AeroV4" -- Use your GitHub for these specific files
+end
+
+return game:HttpGet('https://raw.githubusercontent.com/'..repo..'/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
+				
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
