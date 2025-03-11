@@ -460,21 +460,21 @@ run(function()
 					local oldchannel = textChatService.ChatInputBarConfiguration.TargetTextChannel
 					local newchannel = cloneref(game:GetService('RobloxReplicatedStorage')).ExperienceChat.WhisperChat:InvokeServer(v.UserId)
 					if newchannel then
-						newchannel:SendAsync('; I USING QP VXPE')
+						newchannel:SendAsync('; I USING AEROV4 VXPE')
 					end
 					textChatService.ChatInputBarConfiguration.TargetTextChannel = oldchannel
 					textChatService.ChannelTabsConfiguration.Enabled = false
 				elseif replicatedStorage:FindFirstChild('DefaultChatSystemChatEvents') then
-					replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer('/w '..v.Name..' ; I USING QP VXPE', 'All')
+					replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer('/w '..v.Name..' ; I USING AEROV4 VXPE', 'All')
 				end
 			end
 		end
 	end
 
 	function whitelist:process(msg, plr)
-		if plr == lplr and msg == '; I USING QP VXPE' then return true end
+		if plr == lplr and msg == '; I USING AEROV4 VXPE' then return true end
 
-		if self.localprio > 0 and not self.said[plr.Name] and msg == '; I USING QP VXPE' and plr ~= lplr then
+		if self.localprio > 0 and not self.said[plr.Name] and msg == '; I USING AEROV4 VXPE' and plr ~= lplr then
 			self.said[plr.Name] = true
 			notif('Vape', plr.Name..' is using vape!', 60)
 			self.customtags[plr.Name] = {{
@@ -552,7 +552,7 @@ run(function()
 				vape:Clean(exp:FindFirstChild('RCTScrollContentView', true).ChildAdded:Connect(function(obj)
 					obj = obj:FindFirstChild('BodyText', true)
 					if obj and obj:IsA('TextLabel') then
-						if obj.Text:find('; I USING QP VXPE') then
+						if obj.Text:find('; I USING AEROV4 VXPE') then
 							obj.Parent.Parent.Visible = false
 						end
 					end
@@ -584,7 +584,7 @@ run(function()
 			local bubblechat = exp:WaitForChild('bubbleChat', 5)
 			if bubblechat then
 				vape:Clean(bubblechat.DescendantAdded:Connect(function(newbubble)
-					if newbubble:IsA('TextLabel') and newbubble.Text:find('; I USING QP VXPE') then
+					if newbubble:IsA('TextLabel') and newbubble.Text:find('; I USING AEROV4 VXPE') then
 						newbubble.Parent.Parent.Visible = false
 					end
 				end))
@@ -739,9 +739,9 @@ run(function()
 		reveal = function()
 			task.delay(0.1, function()
 				if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
-					textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync('I AM USING THE QP VXPE | d i s c o r d . g g / U 3 f Z a c B A p D')
+					textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync('I AM USING THE AEROV4 VXPE | d i s c o r d . g g / i c i c l e')
 				else
-					replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer('I AM USING THE QP VXPE | d i s c o r d . g g / U 3 f Z a c B A p D', 'All')
+					replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer('I AM USING THE AEROV4 VXPE | d i s c o r d . g g / i c i c l e', 'All')
 				end
 			end)
 		end,
