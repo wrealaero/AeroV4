@@ -5748,6 +5748,11 @@ mainapi:CreateCategory({
 	Icon = getcustomasset('newvape/assets/new/miniicon.png'),
 	Size = UDim2.fromOffset(19, 12)
 })
+mainapi:CreateCategory({
+	Name = 'Modules',
+	Icon = getcustomasset('newvape/assets/new/module.png'),
+	Size = UDim2.fromOffset(14, 14)
+})
 mainapi.Categories.Main:CreateDivider('misc')
 
 --[[
@@ -6038,7 +6043,8 @@ guipane:CreateButton({
 			InventoryCategory = 7,
 			MinigamesCategory = 8,
 			FriendsCategory = 9,
-			ProfilesCategory = 10
+			ProfilesCategory = 10,
+			ModulesCategory = 11
 		}
 		local categories = {}
 		for _, v in mainapi.Categories do
