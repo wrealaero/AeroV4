@@ -2678,6 +2678,11 @@ mainapi:CreateCategory({
 	RealName = 'Legit',
 	RiseIcon = 'f'
 })
+mainapi:CreateCategory({
+	Name = 'Modules',
+	RealName = 'Modules',
+	RiseIcon = 'm'
+})
 mainapi.Categories.Minigames = mainapi.Categories.Utility
 mainapi.Categories.Inventory = mainapi.Categories.Utility
 
