@@ -1,5 +1,4 @@
 --This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
---This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 local loadstring = function(...)
 	local res, err = loadstring(...)
 	if err and vape then
@@ -16,7 +15,7 @@ end
 local function downloadFile(path, func)
 	if not isfile(path) then
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/wrealaero/AeroV4/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/QP-Offcial/VapeV4ForRoblox/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
@@ -84,10 +83,58 @@ local activeAnimationTrack = nil
 local activeModel = nil
 local emoteActive = false
  
+
+local RunLoops = {RenderStepTable = {}, StepTable = {}, HeartTable = {}}
+do
+	function RunLoops:BindToRenderStep(name, func)
+		if RunLoops.RenderStepTable[name] == nil then
+			RunLoops.RenderStepTable[name] = runService.RenderStepped:Connect(func)
+		end
+	end
+
+	function RunLoops:UnbindFromRenderStep(name)
+		if RunLoops.RenderStepTable[name] then
+			RunLoops.RenderStepTable[name]:Disconnect()
+			RunLoops.RenderStepTable[name] = nil
+		end
+	end
+
+	function RunLoops:BindToStepped(name, func)
+		if RunLoops.StepTable[name] == nil then
+			RunLoops.StepTable[name] = runService.Stepped:Connect(func)
+		end
+	end
+
+	function RunLoops:UnbindFromStepped(name)
+		if RunLoops.StepTable[name] then
+			RunLoops.StepTable[name]:Disconnect()
+			RunLoops.StepTable[name] = nil
+		end
+	end
+
+	function RunLoops:BindToHeartbeat(name, func)
+		if RunLoops.HeartTable[name] == nil then
+			RunLoops.HeartTable[name] = runService.Heartbeat:Connect(func)
+		end
+	end
+
+	function RunLoops:UnbindFromHeartbeat(name)
+		if RunLoops.HeartTable[name] then
+			RunLoops.HeartTable[name]:Disconnect()
+			RunLoops.HeartTable[name] = nil
+		end
+	end
+end
+
+
 local XStore = {
 	bedtable = {},
 	Tweening = false
 }
+
+local function getrandomvalue(tab)
+	return #tab > 0 and tab[math.random(1, #tab)] or ''
+end
 
 local function GetEnumItems(enum)
 	local fonts = {}
@@ -120,6 +167,16 @@ local function GetMagnitudeOf2Objects(part, part2, bypass)
 		magnitude = bypass and (part - part2).magnitude or (part.Position - part2.Position).magnitude
 	end
 	return magnitude
+end
+local function createSequence(args)
+    local seq =
+        ColorSequence.new(
+        {
+            ColorSequenceKeypoint.new(args[1], args[2]),
+            ColorSequenceKeypoint.new(args[3], args[4])
+        }
+    )
+    return seq
 end
 local function GetTopBlock(position, smart, raycast, customvector)
 	position = position or isAlive(lplr, true) and lplr.Character:WaitForChild("HumanoidRootPart").Position
@@ -175,6 +232,11 @@ local function FindEnemyBed(maxdistance, highest)
 	if coveredblock then
 		target = coveredblock.Instance
 	end
+	for i,v in pairs(game:GetService("Teams"):GetTeams()) do
+		if target and v.TeamColor == target.Bed.BrickColor then
+			XStore.bedtable[target] = v.Name
+		end
+	end
 	return target
 end
 local function FindTeamBed()
@@ -198,90 +260,20 @@ local function FindItemDrop(item)
 	end
 	return itemdist
 end
-local function FindTarget(dist, blockRaycast, includemobs, healthmethod)
-	local whitelist = vape.Libraries.whitelist
-	local sort, entity = healthmethod and math.huge or dist or math.huge, {}
-	local function abletocalculate() return lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart") end
-	local sortmethods = {Normal = function(entityroot, entityhealth) return abletocalculate() and GetMagnitudeOf2Objects(lplr.Character:WaitForChild("HumanoidRootPart"), entityroot) < sort end, Health = function(entityroot, entityhealth) return abletocalculate() and entityhealth < sort end}
-	local sortmethod = healthmethod and "Health" or "Normal"
-	local function raycasted(entityroot) return abletocalculate() and blockRaycast and game.Workspace:Raycast(entityroot.Position, Vector3.new(0, -2000, 0), store.blockRaycast) or not blockRaycast and true or false end
-	for i,v in pairs(playersService:GetPlayers()) do
-		if v ~= lplr and abletocalculate() and isAlive(v) and v.Team ~= lplr.Team then
-			if not ({whitelist:get(v)})[2] then 
-				continue
-			end
-			if sortmethods[sortmethod](v.Character.HumanoidRootPart, v.Character:GetAttribute("Health") or v.Character.Humanoid.Health) and raycasted(v.Character.HumanoidRootPart) then
-				sort = healthmethod and v.Character.Humanoid.Health or GetMagnitudeOf2Objects(lplr.Character:WaitForChild("HumanoidRootPart"), v.Character.HumanoidRootPart)
-				entity.Player = v
-				entity.Human = true 
-				entity.RootPart = v.Character.HumanoidRootPart
-				entity.Humanoid = v.Character.Humanoid
-			end
+
+local function getItem(itemName, inv)
+	for slot, item in (inv or store.inventory.inventory.items) do
+		if item.itemType == itemName then
+			return item, slot
 		end
 	end
-	if includemobs then
-		local maxdistance = dist or math.huge
-		for i,v in pairs(store.pots) do
-			if abletocalculate() and v.PrimaryPart and GetMagnitudeOf2Objects(lplr.Character:WaitForChild("HumanoidRootPart"), v.PrimaryPart) < maxdistance then
-			entity.Player = {Character = v, Name = "PotEntity", DisplayName = "PotEntity", UserId = 1}
-			entity.Human = false
-			entity.RootPart = v.PrimaryPart
-			entity.Humanoid = {Health = 1, MaxHealth = 1}
-			end
-		end
-		for i,v in pairs(collectionService:GetTagged("DiamondGuardian")) do 
-			if v.PrimaryPart and v:FindFirstChild("Humanoid") and v.Humanoid.Health and abletocalculate() then
-				if sortmethods[sortmethod](v.PrimaryPart, v.Humanoid.Health) and raycasted(v.PrimaryPart) then
-				sort = healthmethod and v.Humanoid.Health or GetMagnitudeOf2Objects(lplr.Character:WaitForChild("HumanoidRootPart"), v.PrimaryPart)
-				entity.Player = {Character = v, Name = "DiamondGuardian", DisplayName = "DiamondGuardian", UserId = 1}
-				entity.Human = false
-				entity.RootPart = v.PrimaryPart
-				entity.Humanoid = v.Humanoid
-				end
-			end
-		end
-		for i,v in pairs(collectionService:GetTagged("GolemBoss")) do
-			if v.PrimaryPart and v:FindFirstChild("Humanoid") and v.Humanoid.Health and abletocalculate() then
-				if sortmethods[sortmethod](v.PrimaryPart, v.Humanoid.Health) and raycasted(v.PrimaryPart) then
-				sort = healthmethod and v.Humanoid.Health or GetMagnitudeOf2Objects(lplr.Character:WaitForChild("HumanoidRootPart"), v.PrimaryPart)
-				entity.Player = {Character = v, Name = "Titan", DisplayName = "Titan", UserId = 1}
-				entity.Human = false
-				entity.RootPart = v.PrimaryPart
-				entity.Humanoid = v.Humanoid
-				end
-			end
-		end
-		for i,v in pairs(collectionService:GetTagged("Drone")) do
-			local plr = playersService:GetPlayerByUserId(v:GetAttribute("PlayerUserId"))
-			if plr and plr ~= lplr and plr.Team and lplr.Team and plr.Team ~= lplr.Team and ({VoidwareFunctions:GetPlayerType(plr)})[2] and abletocalculate() and v.PrimaryPart and v:FindFirstChild("Humanoid") and v.Humanoid.Health then
-				if sortmethods[sortmethod](v.PrimaryPart, v.Humanoid.Health) and raycasted(v.PrimaryPart) then
-					sort = healthmethod and v.Humanoid.Health or GetMagnitudeOf2Objects(lplr.Character:WaitForChild("HumanoidRootPart"), v.PrimaryPart)
-					entity.Player = {Character = v, Name = "Drone", DisplayName = "Drone", UserId = 1}
-					entity.Human = false
-					entity.RootPart = v.PrimaryPart
-					entity.Humanoid = v.Humanoid
-				end
-			end
-		end
-		for i,v in pairs(collectionService:GetTagged("Monster")) do
-			if v:GetAttribute("Team") ~= lplr:GetAttribute("Team") and abletocalculate() and v.PrimaryPart and v:FindFirstChild("Humanoid") and v.Humanoid.Health then
-				if sortmethods[sortmethod](v.PrimaryPart, v.Humanoid.Health) and raycasted(v.PrimaryPart) then
-				sort = healthmethod and v.Humanoid.Health or GetMagnitudeOf2Objects(lplr.Character:WaitForChild("HumanoidRootPart"), v.PrimaryPart)
-				entity.Player = {Character = v, Name = "Monster", DisplayName = "Monster", UserId = 1}
-				entity.Human = false
-				entity.RootPart = v.PrimaryPart
-				entity.Humanoid = v.Humanoid
-			end
-		end
-	end
-    end
-    return entity
+	return nil
 end
 
 local vapeAssert = function(argument, title, text, duration, hault, moduledisable, module) 
 	if not argument then
     local suc, res = pcall(function()
-    local notification = GuiLibrary.CreateNotification(title or "Voidware", text or "Failed to call function.", duration or 20, "assets/WarningNotification.png")
+    local notification = GuiLibrary:CreateNotification(title or "QP Vape", text or "Failed to call function.", duration or 20, "assets/WarningNotification.png")
     notification.IconLabel.ImageColor3 = Color3.new(220, 0, 0)
     notification.Frame.Frame.ImageColor3 = Color3.new(220, 0, 0)
     if moduledisable and (module and vape.Modules[module].Enabled) then vape.Modules[module]:Toggle(false) end
@@ -415,249 +407,6 @@ local function activateNightmareEmote()
     end
 end
 
-
-run(function()
-    local tppos2 = nil
-    local TweenSpeed = 0.7
-    local HeightOffset = 5
-    local BedTP = {}
-
-    local function teleportWithTween(char, destination)
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if root then
-            destination = destination + Vector3.new(0, HeightOffset, 0)
-            local currentPosition = root.Position
-            if (destination - currentPosition).Magnitude > 0.5 then
-                local tweenInfo = TweenInfo.new(TweenSpeed, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
-                local goal = {CFrame = CFrame.new(destination)}
-                local tween = TweenService:Create(root, tweenInfo, goal)
-                tween:Play()
-                tween.Completed:Wait()
-				BedTP:Toggle(false)
-            end
-        end
-    end
-
-    local function killPlayer(player)
-        local character = player.Character
-        if character then
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid.Health = 0
-            end
-        end
-    end
-
-    local function getEnemyBed(range)
-        range = range or math.huge
-        local bed = nil
-        local player = lplr
-
-        if not isAlive(player, true) then 
-            return nil 
-        end
-
-        local localPos = player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character.HumanoidRootPart.Position or Vector3.zero
-        local playerTeam = player:GetAttribute('Team')
-        local beds = collectionService:GetTagged('bed')
-
-        for _, v in ipairs(beds) do 
-            if v:GetAttribute('PlacedByUserId') == 0 then
-                local bedTeam = v:GetAttribute('id'):sub(1, 1)
-                if bedTeam ~= playerTeam then 
-                    local bedPosition = v.Position
-                    local bedDistance = (localPos - bedPosition).Magnitude
-                    if bedDistance < range then 
-                        bed = v
-                        range = bedDistance
-                    end
-                end
-            end
-        end
-
-        if not bed then 
-            warningNotification("BedTP", 'No enemy beds found. Total beds: '..#beds, 5)
-        else
-            --warningNotification("BedTP", 'Teleporting to bed at position: '..tostring(bed.Position), 3)
-			warningNotification("BedTP", 'Teleporting to bed at position: '..tostring(bed.Position), 3)
-        end
-
-        return bed
-    end
-
-    BedTP = vape.Categories.Modules:CreateModule({
-        ["Name"] = "BedTP",
-        ["Function"] = function(callback)
-            if callback then
-				task.spawn(function()
-					repeat task.wait() until vape.Modules.Invisibility
-					repeat task.wait() until vape.Modules.GamingChair
-					if vape.Modules.Invisibility.Enabled and vape.Modules.GamingChair.Enabled then
-						errorNotification("BedTP", "Please turn off the Invisibility and GamingChair module!", 3)
-						BedTP:Toggle()
-						return
-					end
-					if vape.Modules.Invisibility.Enabled then
-						errorNotification("BedTP", "Please turn off the Invisibility module!", 3)
-						BedTP:Toggle()
-						return
-					end
-					if vape.Modules.GamingChair.Enabled then
-						errorNotification("BedTP", "Please turn off the GamingChair module!", 3)
-						BedTP:Toggle()
-						return
-					end
-					BedTP:Clean(lplr.CharacterAdded:Connect(function(char)
-						if tppos2 then 
-							task.spawn(function()
-								local root = char:WaitForChild("HumanoidRootPart", 9000000000)
-								if root and tppos2 then 
-									teleportWithTween(char, tppos2 + Vector3.new(0,10,0))
-									tppos2 = nil
-								end
-							end)
-						end
-					end))
-					local bed = getEnemyBed()
-					if bed then 
-						tppos2 = bed.Position
-						killPlayer(lplr)
-					else
-						BedTP:Toggle(false)
-					end
-				end)
-            end
-        end
-    })
-end)
-
-run(function()
-	local TweenService = game:GetService("TweenService")
-	local playersService = game:GetService("Players")
-	local lplr = playersService.LocalPlayer
-	
-	local tppos2
-	local deathtpmod = {["Enabled"] = false}
-	local HeightOffset = 5
-
-	local function teleportWithTween(char, destination)
-		local root = char:FindFirstChild("HumanoidRootPart")
-		if root then
-			destination = destination + Vector3.new(0, HeightOffset, 0)
-			local currentPosition = root.Position
-			if (destination - currentPosition).Magnitude > 0.5 then
-				local tweenInfo = TweenInfo.new(0.65, Enum.EasingStyle.Linear, Enum.EasingDirection.In, 0, false, 0)
-				local goal = {CFrame = CFrame.new(destination)}
-				local tween = TweenService:Create(root, tweenInfo, goal)
-				tween:Play()
-				tween.Completed:Wait()
-			end
-		end
-	end
-
-	local function killPlayer(player)
-		local character = player.Character
-		if character then
-			local humanoid = character:FindFirstChildOfClass("Humanoid")
-			if humanoid then
-				humanoid.Health = 0
-			end
-		end
-	end
-
-	local function onCharacterAdded(char)
-		if tppos2 then 
-			task.spawn(function()
-				local root = char:WaitForChild("HumanoidRootPart", 9000000000)
-				if root and tppos2 then 
-					teleportWithTween(char, tppos2)
-					tppos2 = nil
-				end
-			end)
-		end
-	end
-
-	vapeConnections[#vapeConnections + 1] = lplr.CharacterAdded:Connect(onCharacterAdded)
-
-	local function setTeleportPosition()
-		local UserInputService = game:GetService("UserInputService")
-		local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-
-		if isMobile then
-			warningNotification("DeathTP", "Please tap on the screen to set TP position.", 3)
-			local connection
-			connection = UserInputService.TouchTapInWorld:Connect(function(inputPosition, processedByUI)
-				if not processedByUI then
-					local mousepos = lplr:GetMouse().UnitRay
-					local rayparams = RaycastParams.new()
-					rayparams.FilterDescendantsInstances = {game.Workspace.Map, game.Workspace:FindFirstChild("SpectatorPlatform")}
-					rayparams.FilterType = Enum.RaycastFilterType.Whitelist
-					local ray = game.Workspace:Raycast(mousepos.Origin, mousepos.Direction * 10000, rayparams)
-					if ray then 
-						tppos2 = ray.Position 
-						warningNotification("DeathTP", "Set TP Position. Resetting to teleport...", 3)
-						killPlayer(lplr)
-					end
-					connection:Disconnect()
-					deathtpmod["ToggleButton"](false)
-				end
-			end)
-		else
-			local mousepos = lplr:GetMouse().UnitRay
-			local rayparams = RaycastParams.new()
-			rayparams.FilterDescendantsInstances = {game.Workspace.Map, game.Workspace:FindFirstChild("SpectatorPlatform")}
-			rayparams.FilterType = Enum.RaycastFilterType.Whitelist
-			local ray = game.Workspace:Raycast(mousepos.Origin, mousepos.Direction * 10000, rayparams)
-			if ray then 
-				tppos2 = ray.Position 
-				warningNotification("DeathTP", "Set TP Position. Resetting to teleport...", 3)
-				killPlayer(lplr)
-			end
-			deathtpmod["ToggleButton"](false)
-		end
-	end
-
-	deathtpmod = vape.Categories.Modules:CreateModule({
-		["Name"] = "DeathTP",
-		["Function"] = function(calling)
-			if calling then
-				task.spawn(function()
-					repeat task.wait() until vape.Modules.Invisibility
-					repeat task.wait() until vape.Modules.GamingChair
-					if vape.Modules.Invisibility.Enabled and vape.Modules.GamingChair.Enabled then
-						errorNotification("DeathTP", "Please turn off the Invisibility and GamingChair module!", 3)
-						deathtpmod:Toggle()
-						return
-					end
-					if vape.Modules.Invisibility.Enabled then
-						errorNotification("DeathTP", "Please turn off the Invisibility module!", 3)
-						deathtpmod:Toggle()
-						return
-					end
-					if vape.Modules.GamingChair.Enabled then
-						errorNotification("DeathTP", "Please turn off the GamingChair module!", 3)
-						deathtpmod:Toggle()
-						return
-					end
-					local canRespawn = function() end
-					canRespawn = function()
-						local success, response = pcall(function() 
-							return lplr.leaderstats.Bed.Value == '✅' 
-						end)
-						return success and response 
-					end
-					if not canRespawn() then 
-						warningNotification("DeathTP", "Unable to use DeathTP without bed!", 5)
-						deathtpmod:Toggle()
-					else
-						setTeleportPosition()
-					end
-				end)
-			end
-		end
-	})
-end)
-
 local function GetTarget()
 	return entitylib.EntityPosition({
 		Part = 'RootPart',
@@ -667,155 +416,6 @@ local function GetTarget()
 		Wallcheck = false
 	})
 end
-
-run(function()
-	local PlayerTP
-	local PlayerTPTeleport = {Value = 'Respawn'}
-	local PlayerTPSort = {Value = 'Distance'}
-	local PlayerTPMethod = {Value = 'Linear'}
-	local PlayerTPAutoSpeed = {}
-	local PlayerTPSpeed = {Value = 200}
-	local PlayerTPTarget = {Value = ''}
-	local playertween
-	local oldmovefunc
-	local bypassmethods = {
-		Respawn = function() 
-			if isEnabled('InfiniteFly') then 
-				return 
-			end
-			if not canRespawn() then 
-				return 
-			end
-			for i = 1, 30 do 
-				if isAlive(lplr, true) and lplr.Character:WaitForChild("Humanoid"):GetState() ~= Enum.HumanoidStateType.Dead then
-					lplr.Character:WaitForChild("Humanoid"):TakeDamage(lplr.Character:WaitForChild("Humanoid").Health)
-					lplr.Character:WaitForChild("Humanoid"):ChangeState(Enum.HumanoidStateType.Dead)
-				end
-			end
-			lplr.CharacterAdded:Wait()
-			repeat task.wait() until isAlive(lplr, true) 
-			task.wait(0.1)
-			local target = GetTarget(nil, PlayerTPSort.Value == 'Health', true)
-			if target.RootPart == nil or not PlayerTP.Enabled then 
-				return
-			end
-			local localposition = lplr.Character:WaitForChild("HumanoidRootPart").Position
-			local tweenspeed = (PlayerTPAutoSpeed.Enabled and ((target.RootPart.Position - localposition).Magnitude / 470) + 0.001 * 2 or (PlayerTPSpeed.Value / 1000) + 0.1)
-			local tweenstyle = (PlayerTPAutoSpeed.Enabled and Enum.EasingStyle.Linear or Enum.EasingStyle[PlayerTPMethod.Value])
-			playertween = tweenService:Create(lplr.Character:WaitForChild("HumanoidRootPart"), TweenInfo.new(tweenspeed, tweenstyle), {CFrame = target.RootPart.CFrame}) 
-			playertween:Play() 
-			playertween.Completed:Wait()
-		end,
-		Instant = function() 
-			local target = GetTarget(nil, PlayerTPSort.Value == 'Health', true)
-			if target.RootPart == nil then 
-				return PlayerTP:Toggle()
-			end
-			lplr.Character:WaitForChild("HumanoidRootPart").CFrame = (target.RootPart.CFrame + Vector3.new(0, 5, 0)) 
-			PlayerTP:Toggle()
-		end,
-		Recall = function()
-			if not isAlive(lplr, true) or lplr.Character:WaitForChild("Humanoid").FloorMaterial == Enum.Material.Air then 
-				errorNotification('PlayerTP', 'Recall ability not available.', 7)
-				return 
-			end
-			if not bedwars.AbilityController:canUseAbility('recall') then 
-				errorNotification('PlayerTP', 'Recall ability not available.', 7)
-				return
-			end
-			pcall(function()
-				oldmovefunc = require(lplr.PlayerScripts.PlayerModule).controls.moveFunction 
-				require(lplr.PlayerScripts.PlayerModule).controls.moveFunction = function() end
-			end)
-			bedwars.AbilityController:useAbility('recall')
-			local teleported
-			PlayerTP:Clean(lplr:GetAttributeChangedSignal('LastTeleported'):Connect(function() teleported = true end))
-			repeat task.wait() until teleported or not PlayerTP.Enabled or not isAlive(lplr, true) 
-			task.wait()
-			local target = GetTarget(nil, PlayerTPSort.Value == 'Health', true)
-			if target.RootPart == nil or not isAlive(lplr, true) or not PlayerTP.Enabled then 
-				return
-			end
-			local localposition = lplr.Character:WaitForChild("HumanoidRootPart").Position
-			local tweenspeed = (PlayerTPAutoSpeed.Enabled and ((target.RootPart.Position - localposition).Magnitude / 1000) + 0.001 or (PlayerTPSpeed.Value / 1000) + 0.1)
-			local tweenstyle = (PlayerTPAutoSpeed.Enabled and Enum.EasingStyle.Linear or Enum.EasingStyle[PlayerTPMethod.Value])
-			playertween = tweenService:Create(lplr.Character:WaitForChild("HumanoidRootPart"), TweenInfo.new(tweenspeed, tweenstyle), {CFrame = target.RootPart.CFrame}) 
-			playertween:Play() 
-			playertween.Completed:Wait()
-		end
-	}
-	PlayerTP = vape.Categories.Modules:CreateModule({
-		Name = 'PlayerTP',
-		Tooltip = 'Tweens you to a nearby target.',
-		Function = function(calling)
-			if calling then 
-				task.spawn(function()
-					repeat task.wait() until vape.Modules.Invisibility
-					repeat task.wait() until vape.Modules.GamingChair
-					if vape.Modules.Invisibility.Enabled and vape.Modules.GamingChair.Enabled then
-						errorNotification("PlayerTP", "Please turn off the Invisibility and GamingChair module!", 3)
-						PlayerTP:Toggle()
-						return
-					end
-					if vape.Modules.Invisibility.Enabled then
-						errorNotification("PlayerTP", "Please turn off the Invisibility module!", 3)
-						PlayerTP:Toggle()
-						return
-					end
-					if vape.Modules.GamingChair.Enabled then
-						errorNotification("PlayerTP", "Please turn off the GamingChair module!", 3)
-						PlayerTP:Toggle()
-						return
-					end
-					if GetTarget(nil, PlayerTPSort.Value == 'Health', true) and GetTarget(nil, PlayerTPSort.Value == 'Health', true).RootPart and shared.VapeFullyLoaded then 
-						bypassmethods[isAlive() and PlayerTPTeleport.Value or 'Respawn']() 
-					else
-						InfoNotification("PlayerTP", "No player/s found!", 3)
-					end
-					if PlayerTP.Enabled then 
-						PlayerTP:Toggle()
-					end
-				end)
-			else
-				pcall(function() playertween:Disconnect() end)
-				if oldmovefunc then 
-					pcall(function() require(lplr.PlayerScripts.PlayerModule).controls.moveFunction = oldmovefunc end)
-				end
-				oldmovefunc = nil
-			end
-		end
-	})
-	PlayerTPTeleport = PlayerTP:CreateDropdown({
-		Name = 'Teleport Method',
-		List = {'Respawn', 'Recall'},
-		Function = function() end
-	})
-	PlayerTPAutoSpeed = PlayerTP:CreateToggle({
-		Name = 'Auto Speed',
-		Tooltip = 'Automatically uses a "good" tween speed.',
-		Default = true,
-		Function = function(calling) 
-			if calling then 
-				pcall(function() PlayerTPSpeed.Object.Visible = false end) 
-			else 
-				pcall(function() PlayerTPSpeed.Object.Visible = true end) 
-			end
-		end
-	})
-	PlayerTPSpeed = PlayerTP:CreateSlider({
-		Name = 'Tween Speed',
-		Min = 20, 
-		Max = 350,
-		Default = 200,
-		Function = function() end
-	})
-	PlayerTPMethod = PlayerTP:CreateDropdown({
-		Name = 'Teleport Method',
-		List = GetEnumItems('EasingStyle'),
-		Function = function() end
-	})
-	PlayerTPSpeed.Object.Visible = false
-end)
 
 local GodMode = {Enabled = false}
 run(function()
@@ -1152,7 +752,7 @@ run(function()
 															end
 														end
 					
-														lplr.Character:WaitForChild("HumanoidRootPart").CFrame = lplr.Character:WaitForChild("HumanoidRootPart").CFrame + Vector3.new(0,100000,0)
+														lplr.Character:WaitForChild("HumanoidRootPart").CFrame = lplr.Character:WaitForChild("HumanoidRootPart").CFrame + Vector3.new(0,100,0)
 					
 														GodMode:Clean(game:GetService("RunService").RenderStepped:Connect(function()
 															if Clone ~= nil and Clone:FindFirstChild("HumanoidRootPart") then
@@ -1185,7 +785,7 @@ run(function()
 		Function = function() end,
 		Default = 2,
 		Min = 1,
-		Max = 10
+		Max = 25
 	})
 end)
 
@@ -1243,253 +843,31 @@ run(function()
         Max = 300,
         Default = 50
     })
-
-	local DeathTPEnabled = false
-
-    local BedTP
-    BedTP = vape.Categories.Modules:CreateModule({
-        Name = "BedTP",
-        Description = "Teleports to enemy beds",
-        Function = function(callback)
-            if callback then
-                BedTP:Toggle(false)
-                local collection = game:GetService('CollectionService') :: CollectionService;
-                local lplr = playersService.LocalPlayer;
-                local tween = game:GetService('TweenService') :: TweenService
-
-                local isshield = function(obj: Model)
-                    return obj:GetAttribute('BedShieldEndTime') and obj:GetAttribute('BedShieldEndTime') > workspace:GetServerTimeNow() 
-                end
-                local getbed = function()
-                    for i: number, v: Model? in collection:GetTagged('bed') do
-                        if not isshield(v) and v.Bed.BrickColor ~= lplr.TeamColor then
-                            return v;
-                        end;
-                    end;
-                end;
-                
-                local bed = getbed();
-                assert(bed, 'lmao');
-				local lastDeathTPEnabled = DeathTPEnabled
-                pcall(function()
-					DeathTPEnabled = false
-                    lplr.Character.Humanoid.Health = 0
-                end)
-                local con;
-                con = lplr.CharacterAdded:Connect(function(v)
-                    con:Disconnect();
-                    task.wait(0.2)
-                    tween:Create(v.PrimaryPart, TweenInfo.new(1.35), {CFrame = bed.Bed.CFrame + Vector3.new(0, 20, 0)}):Play();
-					DeathTPEnabled = lastDeathTPEnabled
-                end);
-            end
-        end
-    })
-
-    local PlayerTP
-    PlayerTP = vape.Categories.Modules:CreateModule({
-        Name = "PlayerTP",
-        Description = "Teleports you to the nearest player",
-        Function = function(callback)
-            if callback then
-                PlayerTP:Toggle(false)
-                local Players = game:GetService("Players")
-                local TweenService = game:GetService("TweenService")
-                local LocalPlayer = playersService.LocalPlayer
-                
-                local getClosestEnemy = function()
-                    local closestPlayer = nil
-                    local closestDistance = math.huge
-                
-                    for _, player in ipairs(Players:GetPlayers()) do
-                        if player ~= LocalPlayer and player.TeamColor ~= LocalPlayer.TeamColor and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                            local distance = (player.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-                            if distance < closestDistance then
-                                closestDistance = distance
-                                closestPlayer = player
-                            end
-                        end
-                    end
-                
-                    return closestPlayer
-                end
-                
-                local targetPlayer = getClosestEnemy()
-                assert(targetPlayer, "No enemy players found!")
-                
-				local lastDeathTPEnabled = DeathTPEnabled
-                pcall(function()
-					DeathTPEnabled = false
-                    LocalPlayer.Character.Humanoid.Health = 0
-                end)
-                
-                local connection
-                connection = LocalPlayer.CharacterAdded:Connect(function(newCharacter)
-                    connection:Disconnect()
-                    task.wait(0.2)
-                
-                    local targetPosition = targetPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 2, 0)
-                    tweenService:Create(newCharacter.PrimaryPart, TweenInfo.new(0.75), {CFrame = targetPosition}):Play()
-					DeathTPEnabled = lastDeathTPEnabled
-                end)
-            end
-        end
-    })
-
-	local DeathTP
-	local LastPos = nil
-	DeathTP = vape.Categories.Modules:CreateModule({
-        Name = "DeathTP",
-        Description = "Teleports you to the lastest death position",
-        Function = function(callback)
-            DeathTPEnabled = callback
-        end
-    })
-	local function setupEvent(char)
-		task.wait(0.2)
-		if DeathTPEnabled and LastPos and LastPos.Y > 20 then
-			tweenService:Create(char.PrimaryPart, TweenInfo.new(0.75), {CFrame = LastPos}):Play()
-		end
-		if char:FindFirstChildOfClass("Humanoid") then
-			DeathTP:Clean(char:FindFirstChildOfClass("Humanoid").Died:Once(function()
-				LastPos = char.PrimaryPart and char.PrimaryPart.CFrame or nil
-			end))
-		end
-	end
-	DeathTP:Clean(lplr.CharacterAdded:Connect(setupEvent))
-	if lplr.Character then
-		setupEvent(lplr.Character)
-	end
 end)
 
-
 run(function()
-	local Autowin = {Enabled = false}
-	local AutowinNotification = {Enabled = true}
-	local bedtween
-	local playertween
-	Autowin = vape.Categories.Modules:CreateModule({
-		Name = "Autowin",
-		ExtraText = function() return store.queueType:find("5v5") and "BedShield" or "Normal" end,
-		Function = function(callback)
+	local InfernalKill = {Enabled = false}
+	InfernalKill = vape.Categories.Modules:CreateModule({
+		["Name"] = "EmberExploit",
+		["Function"] = function(callback)
 			if callback then
-				task.spawn(function()
-					if store.matchState == 0 then repeat task.wait() until store.matchState ~= 0 or not Autowin.Enabled end
-					if not Autowin.Enabled then return end
-					vapeAssert(not store.queueType:find("skywars"), "Autowin", "Skywars not supported.", 7, true, true, "Autowin")
-					if isAlive(lplr, true) then
-						lplr.Character:WaitForChild("Humanoid"):ChangeState(Enum.HumanoidStateType.Dead)
-						lplr.Character:WaitForChild("Humanoid"):TakeDamage(lplr.Character:WaitForChild("Humanoid").Health)
+				repeat
+					wait()
+					if getItem("infernal_saber") then
+						local args = {
+							[1] = {
+								["chargeTime"] = 0.9,
+								["player"] = game:GetService("Players").LocalPlayer,
+								["weapon"] = getItem("infernal_saber").tool
+							}
+						}
+			
+						game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("net"):WaitForChild("out"):WaitForChild("_NetManaged"):WaitForChild("HellBladeRelease"):FireServer(unpack(args))
 					end
-					Autowin:Clean(runService.Heartbeat:Connect(function()
-						pcall(function()
-							if not isnetworkowner(lplr.Character:FindFirstChild("HumanoidRootPart")) and (FindEnemyBed() and GetMagnitudeOf2Objects(lplr.Character:WaitForChild("HumanoidRootPart"), FindEnemyBed()) > 75 or not FindEnemyBed()) then
-								if isAlive(lplr, true) and FindTeamBed() and Autowin.Enabled and (not store.matchState == 2) then
-									lplr.Character:WaitForChild("Humanoid"):ChangeState(Enum.HumanoidStateType.Dead)
-									lplr.Character:WaitForChild("Humanoid"):TakeDamage(lplr.Character:WaitForChild("Humanoid").Health)
-								end
-							end
-						end)
-					end))
-					Autowin:Clean(lplr.CharacterAdded:Connect(function()
-						if not isAlive(lplr, true) then repeat task.wait() until isAlive(lplr, true) end
-						local bed = FindEnemyBed()
-						if bed and (bed:GetAttribute("BedShieldEndTime") and bed:GetAttribute("BedShieldEndTime") < workspace:GetServerTimeNow() or not bed:GetAttribute("BedShieldEndTime")) then
-						bedtween = tweenService:Create(lplr.Character:WaitForChild("HumanoidRootPart"), TweenInfo.new(0.65, Enum.EasingStyle.Linear, Enum.EasingDirection.In, 0, false, 0), {CFrame = CFrame.new(bed.Position) + Vector3.new(0, 10, 0)})
-						task.wait(0.1)
-						bedtween:Play()
-						bedtween.Completed:Wait()
-						task.spawn(function()
-						task.wait(1.5)
-						local magnitude = GetMagnitudeOf2Objects(lplr.Character:WaitForChild("HumanoidRootPart"), bed)
-						if magnitude >= 50 and FindTeamBed() and Autowin.Enabled then
-							lplr.Character:WaitForChild("Humanoid"):TakeDamage(lplr.Character:WaitForChild("Humanoid").Health)
-							lplr.Character:WaitForChild("Humanoid"):ChangeState(Enum.HumanoidStateType.Dead)
-						end
-						end)
-						if AutowinNotification.Enabled then
-							local bedname = XStore.bedtable[bed] or "unknown"
-							task.spawn(InfoNotification, "Autowin", "Destroying "..bedname:lower().." team's bed", 5)
-						end
-						repeat task.wait() until FindEnemyBed() ~= bed or not isAlive()
-						if FindTarget(45, store.blockRaycast) and FindTarget(45, store.blockRaycast).RootPart and isAlive() then
-							if AutowinNotification.Enabled then
-								local team = XStore.bedtable[bed] or "unknown"
-								task.spawn(InfoNotification, "Autowin", "Killing "..team:lower().." team's teamates", 5)
-							end
-							repeat
-							local target = FindTarget(45, store.blockRaycast)
-							if not target.RootPart then break end
-							playertween = tweenService:Create(lplr.Character:WaitForChild("HumanoidRootPart"), TweenInfo.new(0.65), {CFrame = target.RootPart.CFrame + Vector3.new(0, 3, 0)})
-							playertween:Play()
-							task.wait()
-							until not (FindTarget(45, store.blockRaycast) and FindTarget(45, store.blockRaycast).RootPart) or not Autowin.Enabled or not isAlive()
-						end
-						if isAlive(lplr, true) and FindTeamBed() and Autowin.Enabled then
-							lplr.Character:WaitForChild("Humanoid"):TakeDamage(lplr.Character:WaitForChild("Humanoid").Health)
-							lplr.Character:WaitForChild("Humanoid"):ChangeState(Enum.HumanoidStateType.Dead)
-						end
-						elseif FindTarget(nil, store.blockRaycast) and FindTarget(nil, store.blockRaycast).RootPart then
-							task.wait()
-							local target = FindTarget(nil, store.blockRaycast)
-							playertween = tweenService:Create(lplr.Character:WaitForChild("HumanoidRootPart"), TweenInfo.new(0.65, Enum.EasingStyle.Linear), {CFrame = target.RootPart.CFrame + Vector3.new(0, 3, 0)})
-							playertween:Play()
-							if AutowinNotification.Enabled then
-								task.spawn(InfoNotification, "Autowin", "Killing "..target.Player.DisplayName.." ("..(target.Player.Team and target.Player.Team.Name or "neutral").." Team)", 5)
-							end
-							playertween.Completed:Wait()
-							if not Autowin.Enabled then return end
-								if FindTarget(50, store.blockRaycast).RootPart and isAlive() then
-									repeat
-									target = FindTarget(50, store.blockRaycast)
-									if not target.RootPart or not isAlive() then break end
-									playertween = tweenService:Create(lplr.Character:WaitForChild("HumanoidRootPart"), TweenInfo.new(0.65), {CFrame = target.RootPart.CFrame + Vector3.new(0, 3, 0)})
-									playertween:Play()
-									task.wait()
-									until not (FindTarget(50, store.blockRaycast) and FindTarget(50, store.blockRaycast).RootPart) or (not Autowin.Enabled) or (not isAlive())
-								end
-							if isAlive(lplr, true) and FindTeamBed() and Autowin.Enabled then
-								lplr.Character:WaitForChild("Humanoid"):TakeDamage(lplr.Character:WaitForChild("Humanoid").Health)
-								lplr.Character:WaitForChild("Humanoid"):ChangeState(Enum.HumanoidStateType.Dead)
-							end
-						else
-						if store.matchState == 2 then return end
-						lplr.Character:WaitForChild("Humanoid"):TakeDamage(lplr.Character:WaitForChild("Humanoid").Health)
-						lplr.Character:WaitForChild("Humanoid"):ChangeState(Enum.HumanoidStateType.Dead)
-						end
-					end))
-					Autowin:Clean(lplr.CharacterAdded:Connect(function()
-						if (not isAlive(lplr, true)) then repeat task.wait() until isAlive(lplr, true) end
-						if (not store.matchState == 2) then return end
-						--[[local oldpos = lplr.Character:WaitForChild("HumanoidRootPart").CFrame
-						repeat 
-							lplr.Character:WaitForChild("HumanoidRootPart").CFrame = oldpos
-							task.wait()
-						until (not isAlive(lplr, true)) or (not Autowin.Enabled)--]]
-					end))
-				end)
-			else
-				pcall(function() playertween:Cancel() end)
-				pcall(function() bedtween:Cancel() end)
+				until not InfernalKill["Enabled"]
 			end
 		end,
-		HoverText = "best paid autowin 2023!1!!! rel11!11!1"
-	})
-end)
-
-run(function()
-	local GetHost = {Enabled = false}
-	GetHost = vape.Categories.Modules:CreateModule({
-		Name = "GetHost",
-		Tooltip = ":troll:",
-		Function = function(callback) 
-			if callback then
-				task.spawn(function()
-					warningNotification("GetHost", "This module is only for show. None of the settings will work.", 5)
-					game.Players.LocalPlayer:SetAttribute("CustomMatchRole", "host")
-				end)
-			end
-		end
+		["Description"] = "Amber Exploit"
 	})
 end)
 
@@ -1504,314 +882,6 @@ run(function()
                 activateNightmareEmote()
             end
         end
-    })
-
-    local pack1
-	local packassetids = {
-		['1024x Pack'] = 'rbxassetid://14078540433',
-		['CottanCandy256x'] = 'rbxassetid://14161283331',
-		['512x Pack'] = 'rbxassetid://14224565815',
-		['Beloved E-Girl Pack'] = 'rbxassetid://14126814481',
-		['GLIZZZYYYYY'] = 'rbxassetid://13804645310',
-		['RandomPack1'] = 'rbxassetid://13783192680',
-		['RandomPack2'] = 'rbxassetid://13801616054',
-		['RandomPack3'] = '',
-		['RandomPack4'] = 'rbxassetid://13801509384',
-		['RandomPack5'] = 'rbxassetid://13802020264',
-		['RandomPack6'] = 'rbxassetid://13780890894',
-		['RandomPack7'] = 'rbxassetid://14033898270',
-		['DemonSlayer Pack'] = 'rbxassetid://14241215869',
-		['Exhibition Pack'] = 'rbxassetid://14060102755',
-		['Vibe Pack'] = 'rbxassetid://14282106674',
-		['MainPack'] = 'rbxassetid://79898012794679'
-	}
-    local TexturePacks 
-	TexturePacks = vape.Categories.Modules:CreateModule({
-        Name = 'TexturePacks',
-        Tooltip = 'Gives you a cool unique textures for tools.',
-        Function = function(call)
-            if call then
-				local import = game:GetObjects(packassetids[pack1.Value])[1]
-				import.Parent = replicatedStorage
-				local index = {
-					{
-						name = "wood_sword",
-						offset = CFrame.Angles(math.rad(0),math.rad(-89),math.rad(-90)),
-						model = import:WaitForChild("Wood_Sword"),
-					},
-					{
-						name = "stone_sword",
-						offset = CFrame.Angles(math.rad(0),math.rad(-89),math.rad(-90)),
-						model = import:WaitForChild("Stone_Sword"),
-					},
-					{
-						name = "iron_sword",
-						offset = CFrame.Angles(math.rad(0),math.rad(-89),math.rad(-90)),
-						model = import:WaitForChild("Iron_Sword"),
-					},
-					{
-						name = "diamond_sword",
-						offset = CFrame.Angles(math.rad(0),math.rad(-89),math.rad(-90)),
-						model = import:WaitForChild("Diamond_Sword"),
-					},
-					{
-						name = "emerald_sword",
-						offset = CFrame.Angles(math.rad(0),math.rad(-89),math.rad(-90)),
-						model = import:WaitForChild("Emerald_Sword"),
-					},
-				}
-				for i,v in {'Wood', 'Diamond', 'Emerald', 'Stone', 'Iron', 'Gold'} do
-					if import:FindFirstChild(`{v}_Pickaxe`) then
-						table.insert(index, {
-							name = `{v:lower()}_pickaxe`,
-							offset = CFrame.Angles(math.rad(0), math.rad(-180), math.rad(-95)),
-							model = import[`{v}_Pickaxe`],
-						})
-					end
-					if import:FindFirstChild(v) then
-						table.insert(index, {
-							name = `{v:lower()}`,
-							offset = CFrame.Angles(math.rad(0),math.rad(-90),math.rad(table.find({'Emerald', 'Diamond'}, v) and 90 or -90)),
-							model = import[`{v}`],
-						})
-					end
-				end
-				TexturePacks:Clean(workspace.Camera.Viewmodel.ChildAdded:Connect(function(tool)
-					if(not tool:IsA("Accessory")) then return end
-					for i,v in pairs(index) do
-						if(v.name == tool.Name) then
-							for i,v in pairs(tool:GetDescendants()) do
-								if(v:IsA("Part") or v:IsA("MeshPart") or v:IsA("UnionOperation")) then
-									v.Transparency = 1
-								end
-							end
-							local model = v.model:Clone()
-							model.CFrame = tool:WaitForChild("Handle").CFrame * v.offset
-							model.CFrame *= CFrame.Angles(math.rad(0),math.rad(-50),math.rad(0))
-							model.Parent = tool
-							local weld = Instance.new("WeldConstraint",model)
-							weld.Part0 = model
-							weld.Part1 = tool:WaitForChild("Handle")
-							local tool2 = lplr.Character:WaitForChild(tool.Name)
-							for i,v in pairs(tool2:GetDescendants()) do
-								if(v:IsA("Part") or v:IsA("MeshPart") or v:IsA("UnionOperation")) then
-									v.Transparency = 1
-								end            
-							end            
-							local model2 = v.model:Clone()
-							model2.Anchored = false
-							model2.CFrame = tool2:WaitForChild("Handle").CFrame * v.offset
-							model2.CFrame *= CFrame.Angles(math.rad(0),math.rad(-50),math.rad(0))
-							model2.CFrame *= CFrame.new(0.6,0,-.9)
-							model2.Parent = tool2
-							local weld2 = Instance.new("WeldConstraint",model)
-							weld2.Part0 = model2
-							weld2.Part1 = tool2:WaitForChild("Handle")
-						end
-					end
-				end))
-            end
-        end
-    })
-	local list = {}
-	for i,v in packassetids do
-		table.insert(list, i)
-	end
-    pack1 = TexturePacks:CreateDropdown({
-        Name = 'Pack',
-        List = list,
-		Function = function()
-			if TexturePacks.Enabled then
-				TexturePacks:Toggle()
-				TexturePacks:Toggle()
-			end
-		end
-    })
-end)
-
-run(function()
-    local Skybox
-    GameThemeV2 = vape.Categories.Modules:CreateModule({
-        Name = 'GameThemeV2',
-        Tooltip = '',
-        Function = function(call)
-            if call then
-                if Skybox.Value == "NebulaSky" then
-					local Vignette = true
-
-					local Lighting = game:GetService("Lighting")
-					local ColorCor = Instance.new("ColorCorrectionEffect")
-					local Sky = Instance.new("Sky")
-					local Atm = Instance.new("Atmosphere")
-					
-					for i, v in pairs(Lighting:GetChildren()) do
-						if v then
-							v:Destroy()
-						end
-					end
-					
-					ColorCor.Parent = Lighting
-					Sky.Parent = Lighting
-					Atm.Parent = Lighting
-					
-					if Vignette == true then
-						local Gui = Instance.new("ScreenGui")
-						Gui.Parent = game:GetService("StarterGui")
-						Gui.IgnoreGuiInset = true
-					
-						local ShadowFrame = Instance.new("ImageLabel")
-						ShadowFrame.Parent = Gui
-						ShadowFrame.AnchorPoint = Vector2.new(0, 1)
-						ShadowFrame.Position = UDim2.new(0, 0, 0, 0)
-						ShadowFrame.Size = UDim2.new(0, 0, 0, 0)
-						ShadowFrame.BackgroundTransparency = 1
-						ShadowFrame.Image = ""
-						ShadowFrame.ImageTransparency = 1
-						ShadowFrame.ZIndex = 0
-					end
-					
-					ColorCor.Brightness = 0
-					ColorCor.Contrast = 0.5
-					ColorCor.Saturation = -0.3
-					ColorCor.TintColor = Color3.fromRGB(255, 235, 203)
-					
-					Sky.SkyboxBk = "rbxassetid://13581437029"
-					Sky.SkyboxDn = "rbxassetid://13581439832"
-					Sky.SkyboxFt = "rbxassetid://13581447312"
-					Sky.SkyboxLf = "rbxassetid://13581443463"
-					Sky.SkyboxRt = "rbxassetid://13581452875"
-					Sky.SkyboxUp = "rbxassetid://13581450222"
-					Sky.SunAngularSize = 0
-					
-					Lighting.Ambient = Color3.fromRGB(2, 2, 2)
-					Lighting.Brightness = 1
-					Lighting.ColorShift_Bottom = Color3.fromRGB(0, 0, 0)
-					Lighting.ColorShift_Top = Color3.fromRGB(0, 0, 0)
-					Lighting.EnvironmentDiffuseScale = 0.2
-					Lighting.EnvironmentSpecularScale = 0.2
-					Lighting.GlobalShadows = true
-					Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
-					Lighting.ShadowSoftness = 0.2
-					Lighting.ClockTime = 8
-					Lighting.GeographicLatitude = 45
-					Lighting.ExposureCompensation = 0.5
-					
-					Atm.Density = 0.364
-					Atm.Offset = 0.556
-					Atm.Color = Color3.fromRGB(172, 120, 186)
-					Atm.Decay = Color3.fromRGB(155, 212, 255)
-					Atm.Glare = 0.36
-					Atm.Haze = 1.72					
-                elseif Skybox.Value == "PinkMountainSky" then
-					game.Lighting.Sky.SkyboxBk = "http://www.roblox.com/asset/?id=160188495"
-					game.Lighting.Sky.SkyboxDn = "http://www.roblox.com/asset/?id=160188614"
-					game.Lighting.Sky.SkyboxFt = "http://www.roblox.com/asset/?id=160188609"
-					game.Lighting.Sky.SkyboxLf = "http://www.roblox.com/asset/?id=160188589"
-					game.Lighting.Sky.SkyboxRt = "http://www.roblox.com/asset/?id=160188597"
-					game.Lighting.Sky.SkyboxUp = "http://www.roblox.com/asset/?id=160188588"
-				elseif Skybox.Value == "PurpleSky" then
-					game.Lighting.Sky.SkyboxBk = "http://www.roblox.com/asset/?id=570557514"
-					game.Lighting.Sky.SkyboxDn = "http://www.roblox.com/asset/?id=570557775"
-					game.Lighting.Sky.SkyboxFt = "http://www.roblox.com/asset/?id=570557559"
-					game.Lighting.Sky.SkyboxLf = "http://www.roblox.com/asset/?id=570557620"
-					game.Lighting.Sky.SkyboxRt = "http://www.roblox.com/asset/?id=570557672"
-					game.Lighting.Sky.SkyboxUp = "http://www.roblox.com/asset/?id=570557727"
-					game.Lighting.ColorCorrectionEffect.Saturation = 0.7
-					game.Lighting.ColorCorrectionEffect.Brightness = -0.02					
-                elseif Skybox.Value == "CitySky" then
-
-					local Vignette = true
-
-					local Lighting = game:GetService("Lighting")
-					local ColorCor = Instance.new("ColorCorrectionEffect")
-					local Sky = Instance.new("Sky")
-					local Atm = Instance.new("Atmosphere")
-
-					game.Lighting.Sky.SkyboxBk = "rbxassetid://11263062161"
-					game.Lighting.Sky.SkyboxDn = "rbxassetid://11263065295"
-					game.Lighting.Sky.SkyboxFt = "rbxassetid://11263066644"
-					game.Lighting.Sky.SkyboxLf = "rbxassetid://11263068413"
-					game.Lighting.Sky.SkyboxRt = "rbxassetid://11263069782"
-					game.Lighting.Sky.SkyboxUp = "rbxassetid://11263070890"
-
-					Atm.Density = 0.364
-					Atm.Offset = 0.556
-					Atm.Color = Color3.fromRGB(172, 120, 186)
-					Atm.Decay = Color3.fromRGB(155, 212, 255)
-					Atm.Glare = 0.36
-					Atm.Haze = 1.72		
-                elseif Skybox.Value == "PinkSky" then
-					game.Lighting.Sky.SkyboxBk = "http://www.roblox.com/asset/?id=271042516"
-					game.Lighting.Sky.SkyboxDn = "http://www.roblox.com/asset/?id=271077243"
-					game.Lighting.Sky.SkyboxFt = "http://www.roblox.com/asset/?id=271042556"
-					game.Lighting.Sky.SkyboxLf = "http://www.roblox.com/asset/?id=271042310"
-					game.Lighting.Sky.SkyboxRt = "http://www.roblox.com/asset/?id=271042467"
-					game.Lighting.Sky.SkyboxUp = "http://www.roblox.com/asset/?id=271077958"
-                elseif Skybox.Value == "EgirlSky" then
-					game.Lighting.Sky.SkyboxBk = "rbxassetid://2128458653"
-					game.Lighting.Sky.SkyboxDn = "rbxassetid://2128462480"
-					game.Lighting.Sky.SkyboxFt = "rbxassetid://2128458653"
-					game.Lighting.Sky.SkyboxLf = "rbxassetid://2128462027"
-					game.Lighting.Sky.SkyboxRt = "rbxassetid://2128462027"
-					game.Lighting.Sky.SkyboxUp = "rbxassetid://2128462236"
-					game.Lighting.sky.SunAngularSize = 4
-					game.Lighting.sky.MoonTextureId = "rbxassetid://8139665943"
-					game.Lighting.sky.MoonAngularSize = 11
-					lightingService.Atmosphere.Color = Color3.fromRGB(255, 214, 172)
-					lightingService.Atmosphere.Decay = Color3.fromRGB(255, 202, 175)
-                elseif Skybox.Value == "SpaceSky" then
-					game.Lighting.Sky.SkyboxBk = "rbxassetid://1735468027"
-					game.Lighting.Sky.SkyboxDn = "rbxassetid://1735500192"
-					game.Lighting.Sky.SkyboxFt = "rbxassetid://1735467260"
-					game.Lighting.Sky.SkyboxLf = "rbxassetid://1735467682"
-					game.Lighting.Sky.SkyboxRt = "rbxassetid://1735466772"
-					game.Lighting.Sky.SkyboxUp = "rbxassetid://1735500898"
-				elseif Skybox.Value == "WhiteMountains" then 
-					local Vignette = true
-					local Lighting = game:GetService("Lighting")
-					local ColorCor = Instance.new("ColorCorrectionEffect")
-					local SunRays = Instance.new("SunRaysEffect")
-					local Sky = Instance.new("Sky")
-					local Atm = Instance.new("Atmosphere")
-					game.Lighting.Sky.SkyboxBk = "http://www.roblox.com/asset/?id=14365017479"
-					game.Lighting.Sky.SkyboxDn = "http://www.roblox.com/asset/?id=14365021997"
-					game.Lighting.Sky.SkyboxFt = "http://www.roblox.com/asset/?id=14365016611"
-					game.Lighting.Sky.SkyboxLf = "http://www.roblox.com/asset/?id=14365016884"
-					game.Lighting.Sky.SkyboxRt = "http://www.roblox.com/asset/?id=14365016261"
-					game.Lighting.Sky.SkyboxUp = "http://www.roblox.com/asset/?id=14365017884"
-					
-
-					Lighting.Ambient = Color3.fromRGB(2,2,2)
-					Lighting.Brightness = 0.3
-					Lighting.EnvironmentDiffuseScale = 0.2
-					Lighting.EnvironmentSpecularScale = 0.2
-					Lighting.GlobalShadows = true
-					Lighting.ShadowSoftness = 0.2
-					Lighting.ClockTime = 15
-					Lighting.GeographicLatitude = 45
-					Lighting.ExposureCompensation = 0.5
-					Atm.Density = 0.364
-					Atm.Offset = 0.556
-					Atm.Glare = 0.36
-					Atm.Haze = 1.72
-                elseif Skybox.Value == "Infinite" then
-					game.Lighting.Sky.SkyboxBk = "rbxassetid://14358449723"
-					game.Lighting.Sky.SkyboxDn = "rbxassetid://14358455642"
-					game.Lighting.Sky.SkyboxFt = "rbxassetid://14358452362"
-					game.Lighting.Sky.SkyboxLf = "rbxassetid://14358784700"
-					game.Lighting.Sky.SkyboxRt = "rbxassetid://14358454172"
-					game.Lighting.Sky.SkyboxUp = "rbxassetid://14358455112"
-                end
-            end
-        end
-    })
-    Skybox = GameThemeV2:CreateDropdown({
-        Name = 'Themes',
-        List = {'NebulaSky', "PinkMountainSky", 
-		"CitySky", "PinkSky", 
-		"EgirlSky", "SpaceSky", "WhiteMountains",
-		"Infinite", "PurpleSky"},
-        ["Function"] = function() end
     })
 end)
 
@@ -1968,3 +1038,1405 @@ run(function()
         Default = false
 	})
 end)
+
+run(function()
+	local DamageIndicator = {}
+	local DamageIndicatorColorToggle = {}
+	local DamageIndicatorColor = {Hue = 0, Sat = 0, Value = 0}
+	local DamageIndicatorTextToggle = {}
+	local DamageIndicatorText = {ListEnabled = {}}
+	local DamageIndicatorFontToggle = {}
+	local DamageIndicatorFont = {Value = 'GothamBlack'}
+	local DamageIndicatorTextObjects = {}
+    local DamageIndicatorMode1
+    local DamageMessages = {
+		'Pow!',
+		'Pop!',
+		'Hit!',
+		'Smack!',
+		'Bang!',
+		'Boom!',
+		'Whoop!',
+		'Damage!',
+		'-9e9!',
+		'Whack!',
+		'Crash!',
+		'Slam!',
+		'Zap!',
+		'Snap!',
+		'Thump!'
+	}
+	local RGBColors = {
+		Color3.fromRGB(255, 0, 0),
+		Color3.fromRGB(255, 127, 0),
+		Color3.fromRGB(255, 255, 0),
+		Color3.fromRGB(0, 255, 0),
+		Color3.fromRGB(0, 0, 255),
+		Color3.fromRGB(75, 0, 130),
+		Color3.fromRGB(148, 0, 211)
+	}
+	local orgI, mz, vz = 1, 5, 10
+    local DamageIndicatorMode = {Value = 'Rainbow'}
+	local DamageIndicatorMode2 = {Value = 'Gradient'}
+	DamageIndicator = vape.Categories.Modules:CreateModule({
+        PerformanceModeBlacklisted = true,
+		Name = 'DamageIndicator',
+		Function = function(calling)
+			if calling then
+				task.spawn(function()
+					table.insert(DamageIndicator.Connections, workspace.DescendantAdded:Connect(function(v)
+						pcall(function()
+                            if v.Name ~= 'DamageIndicatorPart' then return end
+							local indicatorobj = v:FindFirstChildWhichIsA('BillboardGui'):FindFirstChildWhichIsA('Frame'):FindFirstChildWhichIsA('TextLabel')
+							if indicatorobj then
+                                if DamageIndicatorColorToggle.Enabled then
+                                    -- indicatorobj.TextColor3 = Color3.fromHSV(DamageIndicatorColor.Hue, DamageIndicatorColor.Sat, DamageIndicatorColor.Value)
+                                    if DamageIndicatorMode.Value == 'Rainbow' then
+                                        if DamageIndicatorMode2.Value == 'Gradient' then
+                                            indicatorobj.TextColor3 = Color3.fromHSV(tick() % mz / mz, orgI, orgI)
+                                        else
+                                            runService.Stepped:Connect(function()
+                                                orgI = (orgI % #RGBColors) + 1
+                                                indicatorobj.TextColor3 = RGBColors[orgI]
+                                            end)
+                                        end
+                                    elseif DamageIndicatorMode.Value == 'Custom' then
+                                        indicatorobj.TextColor3 = Color3.fromHSV(
+                                            DamageIndicatorColor.Hue, 
+                                            DamageIndicatorColor.Sat, 
+                                            DamageIndicatorColor.Value
+                                        )
+                                    else
+                                        indicatorobj.TextColor3 = Color3.fromRGB(127, 0, 255)
+                                    end
+                                end
+                                if DamageIndicatorTextToggle.Enabled then
+                                    if DamageIndicatorMode1.Value == 'Custom' then
+                                        print(getrandomvalue(DamageIndicatorText.ListEnabled))
+                                        local o = getrandomvalue(DamageIndicatorText.ListEnabled)
+                                        indicatorobj.Text = o ~= '' and o or indicatorobj.Text
+									elseif DamageIndicatorMode1.Value == 'Multiple' then
+										indicatorobj.Text = DamageMessages[math.random(orgI, #DamageMessages)]
+									else
+										indicatorobj.Text = 'Render Intents on top!'
+									end
+								end
+								indicatorobj.Font = DamageIndicatorFontToggle.Enabled and Enum.Font[DamageIndicatorFont.Value] or indicatorobject.Font
+							end
+						end)
+					end))
+				end)
+			end
+		end
+	})
+    DamageIndicatorMode = DamageIndicator:CreateDropdown({
+		Name = 'Color Mode',
+		List = {
+			'Rainbow',
+			'Custom',
+			'Lunar'
+		},
+		HoverText = 'Mode to color the Damage Indicator',
+		Value = 'Rainbow',
+		Function = function() end
+	})
+	DamageIndicatorMode2 = DamageIndicator:CreateDropdown({
+		Name = 'Rainbow Mode',
+		List = {
+			'Gradient',
+			'Paint'
+		},
+		HoverText = 'Mode to color the Damage Indicator\nwith Rainbow Color Mode',
+		Value = 'Gradient',
+		Function = function() end
+	})
+    DamageIndicatorMode1 = DamageIndicator:CreateDropdown({
+		Name = 'Text Mode',
+		List = {
+            'Custom',
+			'Multiple',
+			'Lunar'
+		},
+		HoverText = 'Mode to change the Damage Indicator Text',
+		Value = 'Custom',
+		Function = function() end
+	})
+	DamageIndicatorColorToggle = DamageIndicator:CreateToggle({
+		Name = 'Custom Color',
+		Function = function(calling) pcall(function() DamageIndicatorColor.Object.Visible = calling end) end
+	})
+	DamageIndicatorColor = DamageIndicator:CreateColorSlider({
+		Name = 'Text Color',
+		Function = function() end
+	})
+	DamageIndicatorTextToggle = DamageIndicator:CreateToggle({
+		Name = 'Custom Text',
+		HoverText = 'random messages for the indicator',
+		Function = function(calling) pcall(function() DamageIndicatorText.Object.Visible = calling end) end
+	})
+	DamageIndicatorText = DamageIndicator:CreateTextList({
+		Name = 'Text',
+		TempText = 'Indicator Text',
+		AddFunction = function() end
+	})
+	DamageIndicatorFontToggle = DamageIndicator:CreateToggle({
+		Name = 'Custom Font',
+		Function = function(calling) pcall(function() DamageIndicatorFont.Object.Visible = calling end) end
+	})
+	DamageIndicatorFont = DamageIndicator:CreateDropdown({
+		Name = 'Font',
+		List = GetEnumItems('Font'),
+		Function = function() end
+	})
+	DamageIndicatorColor.Object.Visible = DamageIndicatorColorToggle.Enabled
+	DamageIndicatorText.Object.Visible = DamageIndicatorTextToggle.Enabled
+	DamageIndicatorFont.Object.Visible = DamageIndicatorFontToggle.Enabled
+end)
+
+run(function()
+	local HealthbarVisuals = {};
+	local HealthbarRound = {};
+	local HealthbarColorToggle = {};
+	local HealthbarGradientToggle = {};
+	local HealthbarGradientColor = {};
+	local HealthbarHighlight = {};
+	local HealthbarHighlightColor = newcolor();
+	local HealthbarGradientRotation = {Value = 0};
+	local HealthbarTextToggle = {};
+	local HealthbarFontToggle = {};
+	local HealthbarTextColorToggle = {};
+	local HealthbarBackgroundToggle = {};
+	local HealthbarText = {ListEnabled = {}};
+	local HealthbarInvis = {Value = 0};
+	local HealthbarRoundSize = {Value = 4};
+	local HealthbarFont = {value = 'LuckiestGuy'};
+	local HealthbarColor = newcolor();
+	local HealthbarBackground = newcolor();
+	local HealthbarTextColor = newcolor();
+	local healthbarobjects = Performance.new();
+	local oldhealthbar;
+	local healthbarhighlight;
+	local textconnection;
+	local function healthbarFunction()
+		if not HealthbarVisuals.Enabled then 
+			return 
+		end
+		local healthbar = ({pcall(function() return lplr.PlayerGui.hotbar['1'].HotbarHealthbarContainer.HealthbarProgressWrapper['1'] end)})[2]
+		if healthbar and type(healthbar) == 'userdata' then 
+			oldhealthbar = healthbar;
+			healthbar.Transparency = (0.1 * HealthbarInvis.Value);
+			healthbar.BackgroundColor3 = (HealthbarColorToggle.Enabled and Color3.fromHSV(HealthbarColor.Hue, HealthbarColor.Sat, HealthbarColor.Value) or healthbar.BackgroundColor3)
+			if HealthbarGradientToggle.Enabled then 
+				healthbar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+				local gradient = (healthbar:FindFirstChildWhichIsA('UIGradient') or Instance.new('UIGradient', healthbar))
+				gradient.Color = createSequence({0, Color3.fromHSV(HealthbarColor.Hue, HealthbarColor.Sat, HealthbarColor.Value), 1, Color3.fromHSV(HealthbarGradientColor.Hue, HealthbarGradientColor.Sat, HealthbarGradientColor.Value)})
+				gradient.Rotation = HealthbarGradientRotation.Value
+				table.insert(healthbarobjects, gradient)
+			end
+			for i,v in healthbar.Parent:GetChildren() do 
+				if v:IsA('Frame') and v:FindFirstChildWhichIsA('UICorner') == nil and HealthbarRound.Enabled then
+					local corner = Instance.new('UICorner', v);
+					corner.CornerRadius = UDim.new(0, HealthbarRoundSize.Value);
+					table.insert(healthbarobjects, corner)
+				end
+			end
+			local healthbarbackground = ({pcall(function() return healthbar.Parent.Parent end)})[2]
+			if healthbarbackground and type(healthbarbackground) == 'userdata' then
+				healthbar.Transparency = (0.1 * HealthbarInvis.Value);
+				if HealthbarHighlight.Enabled then 
+					local highlight = Instance.new('UIStroke', healthbarbackground);
+					highlight.Color = Color3.fromHSV(HealthbarHighlightColor.Hue, HealthbarHighlightColor.Sat, HealthbarHighlightColor.Value);
+					highlight.Thickness = 1.6; 
+					healthbarhighlight = highlight
+				end
+				if healthbar.Parent.Parent:FindFirstChildWhichIsA('UICorner') == nil and HealthbarRound.Enabled then 
+					local corner = Instance.new('UICorner', healthbar.Parent.Parent);
+					corner.CornerRadius = UDim.new(0, HealthbarRoundSize.Value);
+					table.insert(healthbarobjects, corner)
+				end 
+				if HealthbarBackgroundToggle.Enabled then
+					healthbarbackground.BackgroundColor3 = Color3.fromHSV(HealthbarBackground.Hue, HealthbarBackground.Sat, HealthbarBackground.Value)
+				end
+			end
+			local healthbartext = ({pcall(function() return healthbar.Parent.Parent['1'] end)})[2]
+			if healthbartext and type(healthbartext) == 'userdata' then 
+				local randomtext = getrandomvalue(HealthbarText.ListEnabled)
+				if HealthbarTextColorToggle.Enabled then
+					healthbartext.TextColor3 = Color3.fromHSV(HealthbarTextColor.Hue, HealthbarTextColor.Sat, HealthbarTextColor.Value)
+				end
+				if HealthbarFontToggle.Enabled then 
+					healthbartext.Font = Enum.Font[HealthbarFont.Value]
+				end
+				if randomtext ~= '' and HealthbarTextToggle.Enabled then 
+					healthbartext.Text = randomtext:gsub('<health>', isAlive(lplr, true) and tostring(math.round(lplr.Character:GetAttribute('Health') or 0)) or '0')
+				else
+					pcall(function() healthbartext.Text = tostring(lplr.Character:GetAttribute('Health')) end)
+				end
+				if not textconnection then 
+					textconnection = healthbartext:GetPropertyChangedSignal('Text'):Connect(function()
+						local randomtext = getrandomvalue(HealthbarText.ListEnabled)
+						if randomtext ~= '' then 
+							healthbartext.Text = randomtext:gsub('<health>', isAlive() and tostring(math.floor(lplr.Character:GetAttribute('Health') or 0)) or '0')
+						else
+							pcall(function() healthbartext.Text = tostring(math.floor(lplr.Character:GetAttribute('Health'))) end)
+						end
+					end)
+				end
+			end
+		end
+	end
+	HealthbarVisuals = vape.Categories.Modules:CreateModule({
+		Name = 'HealthbarVisuals',
+		Function = function(calling)
+			if calling then 
+				task.spawn(function()
+					table.insert(HealthbarVisuals.Connections, lplr.PlayerGui.DescendantAdded:Connect(function(v)
+						if v.Name == 'HotbarHealthbarContainer' and v.Parent and v.Parent.Parent and v.Parent.Parent.Name == 'hotbar' then
+							healthbarFunction()
+						end
+					end))
+					healthbarFunction()
+				end)
+			else
+				pcall(function() textconnection:Disconnect() end)
+				pcall(function() oldhealthbar.Parent.Parent.BackgroundColor3 = Color3.fromRGB(41, 51, 65) end)
+				pcall(function() oldhealthbar.BackgroundColor3 = Color3.fromRGB(203, 54, 36) end)
+				pcall(function() oldhealthbar.Parent.Parent['1'].Text = tostring(lplr.Character:GetAttribute('Health')) end)
+				pcall(function() oldhealthbar.Parent.Parent['1'].TextColor3 = Color3.fromRGB(255, 255, 255) end)
+				pcall(function() oldhealthbar.Parent.Parent['1'].Font = Enum.Font.LuckiestGuy end)
+				oldhealthbar = nil
+				textconnection = nil
+				for i,v in healthbarobjects do 
+					pcall(function() v:Destroy() end)
+				end
+				table.clear(healthbarobjects);
+				pcall(function() healthbarhighlight:Destroy() end);
+				healthbarhighlight = nil;
+			end
+		end
+	})
+	HealthbarColorToggle = HealthbarVisuals:CreateToggle({
+		Name = 'Main Color',
+		Default = true,
+		Function = function(calling)
+			pcall(function() HealthbarColor.Object.Visible = calling end)
+			pcall(function() HealthbarGradientToggle.Object.Visible = calling end)
+			if HealthbarVisuals.Enabled then
+				HealthbarVisuals:Toggle()
+				HealthbarVisuals:Toggle()
+			end
+		end 
+	})
+	HealthbarGradientToggle = HealthbarVisuals:CreateToggle({
+		Name = 'Gradient',
+		Function = function(calling)
+			if HealthbarVisuals.Enabled then
+				HealthbarVisuals:Toggle()
+				HealthbarVisuals:Toggle()
+			end
+		end
+	})
+	HealthbarColor = HealthbarVisuals:CreateColorSlider({
+		Name = 'Main Color',
+		Function = function()
+			task.spawn(healthbarFunction)
+		end
+	})
+	HealthbarGradientColor = HealthbarVisuals:CreateColorSlider({
+		Name = 'Secondary Color',
+		Function = function(calling)
+			if HealthbarGradientToggle.Enabled then 
+				task.spawn(healthbarFunction)
+			end
+		end
+	})
+	HealthbarBackgroundToggle = HealthbarVisuals:CreateToggle({
+		Name = 'Background Color',
+		Function = function(calling)
+			pcall(function() HealthbarBackground.Object.Visible = calling end)
+			if HealthbarVisuals.Enabled then
+				HealthbarVisuals:Toggle()
+				HealthbarVisuals:Toggle()
+			end
+		end 
+	})
+	HealthbarBackground = HealthbarVisuals:CreateColorSlider({
+		Name = 'Background Color',
+		Function = function() 
+			task.spawn(healthbarFunction)
+		end
+	})
+	HealthbarTextToggle = HealthbarVisuals:CreateToggle({
+		Name = 'Text',
+		Function = function(calling)
+			pcall(function() HealthbarText.Object.Visible = calling end)
+			if HealthbarVisuals.Enabled then
+				HealthbarVisuals:Toggle()
+				HealthbarVisuals:Toggle()
+			end
+		end 
+	})
+	HealthbarText = HealthbarVisuals:CreateTextList({
+		Name = 'Text',
+		TempText = 'Healthbar Text',
+		AddFunction = function()
+			if HealthbarVisuals.Enabled then
+				HealthbarVisuals:Toggle()
+				HealthbarVisuals:Toggle()
+			end
+		end,
+		RemoveFunction = function()
+			if HealthbarVisuals.Enabled then
+				HealthbarVisuals:Toggle()
+				HealthbarVisuals:Toggle()
+			end
+		end
+	})
+	HealthbarTextColorToggle = HealthbarVisuals:CreateToggle({
+		Name = 'Text Color',
+		Function = function(calling)
+			pcall(function() HealthbarTextColor.Object.Visible = calling end)
+			if HealthbarVisuals.Enabled then
+				HealthbarVisuals:Toggle()
+				HealthbarVisuals:Toggle()
+			end
+		end 
+	})
+	HealthbarTextColor = HealthbarVisuals:CreateColorSlider({
+		Name = 'Text Color',
+		Function = function() 
+			task.spawn(healthbarFunction)
+		end
+	})
+	HealthbarFontToggle = HealthbarVisuals:CreateToggle({
+		Name = 'Text Font',
+		Function = function(calling)
+			pcall(function() HealthbarFont.Object.Visible = calling end)
+			if HealthbarVisuals.Enabled then
+				HealthbarVisuals:Toggle()
+				HealthbarVisuals:Toggle()
+			end
+		end 
+	})
+	HealthbarFont = HealthbarVisuals:CreateDropdown({
+		Name = 'Text Font',
+		List = GetEnumItems('Font'),
+		Function = function(calling)
+			if HealthbarVisuals.Enabled then
+				HealthbarVisuals:Toggle()
+				HealthbarVisuals:Toggle()
+			end
+		end
+	})
+	HealthbarRound = HealthbarVisuals:CreateToggle({
+		Name = 'Round',
+		Function = function(calling)
+			pcall(function() HealthbarRoundSize.Object.Visible = calling end);
+			if HealthbarVisuals.Enabled then
+				HealthbarVisuals:Toggle()
+				HealthbarVisuals:Toggle()
+			end
+		end
+	})
+	HealthbarRoundSize = HealthbarVisuals:CreateSlider({
+		Name = 'Corner Size',
+		Min = 1,
+		Max = 20,
+		Default = 5,
+		Function = function(value)
+			if HealthbarVisuals.Enabled then 
+				pcall(function() 
+					oldhealthbar.Parent:FindFirstChildOfClass('UICorner').CornerRadius = UDim.new(0, value);
+					oldhealthbar.Parent.Parent:FindFirstChildOfClass('UICorner').CornerRadius = UDim.new(0, value)  
+				end)
+			end
+		end
+	})
+	HealthbarHighlight = HealthbarVisuals:CreateToggle({
+		Name = 'Highlight',
+		Function = function(calling)
+			pcall(function() HealthbarHighlightColor.Object.Visible = calling end);
+			if HealthbarVisuals.Enabled then
+				HealthbarVisuals:Toggle()
+				HealthbarVisuals:Toggle()
+			end
+		end
+	})
+	HealthbarHighlightColor = HealthbarVisuals:CreateColorSlider({
+		Name = 'Highlight Color',
+		Function = function()
+			if HealthbarVisuals.Enabled then 
+				pcall(function() healthbarhighlight.Color = Color3.fromHSV(HealthbarHighlightColor.Hue, HealthbarHighlightColor.Sat, HealthbarHighlightColor.Value) end)
+			end
+		end
+	})
+	HealthbarInvis = HealthbarVisuals:CreateSlider({
+		Name = 'Invisibility',
+		Min = 0,
+		Max = 10,
+		Function = function(value)
+			pcall(function() 
+				oldhealthbar.Transparency = (0.1 * value);
+				oldhealthbar.Parent.Parent.Transparency = (0.1 * HealthbarInvis.Value); 
+			end)
+		end
+	})
+	HealthbarBackground.Object.Visible = false;
+	HealthbarText.Object.Visible = false;
+	HealthbarTextColor.Object.Visible = false;
+	HealthbarFont.Object.Visible = false;
+	HealthbarRoundSize.Object.Visible = false;
+	HealthbarHighlightColor.Object.Visible = false;
+end)
+
+run(function()
+	local PlayerViewModel = {};
+    local viewmodelMode = {};
+	local viewmodel = Performance.new()
+	local reModel = function(entity)
+		for i,v in entity.Character:GetChildren() do
+			if v:IsA('BasePart') or v:IsA('Accessory') then
+				pcall(function() v.Transparency = 1 end)
+			end
+		end
+		local part = Instance.new("Part", entity.Character)
+		part.CanCollide = false
+
+		local mesh = Instance.new("SpecialMesh", part)
+		mesh.MeshId = viewmodelMode.Value == 'Among Us' and 'http://www.roblox.com/asset/?id=6235963214' or 'http://www.roblox.com/asset/?id=13004256866'
+		mesh.TextureId = viewmodelMode.Value == 'Among Us' and 'http://www.roblox.com/asset/?id=6235963270' or 'http://www.roblox.com/asset/?id=13004256905'
+		mesh.Offset = viewmodelMode.Value == 'Rabbit' and Vector3.new(0,1.6,0) or Vector3.new(0,0.3,0)
+		mesh.Scale = viewmodelMode.Value == 'Rabbit' and Vector3.new(10, 8, 10) or Vector3.new(0.11, 0.11, 0.11)
+
+		local weld = Instance.new("Weld", part)
+		weld.Part0 = part
+		weld.Part1 = part.Parent.UpperTorso or part.Parent.Torso
+		
+		table.insert(viewmodel, task.spawn(function()
+			viewmodel[entity.Name] = part
+		end))
+	end;
+	local removeModel = function(ent)
+        viewmodel[ent.Name]:Remove()
+        for i,v in ent.Character:GetChildren() do
+            if v:IsA('BasePart') or v:IsA('Accessory') then
+                pcall(function() 
+                    if v ~= ent.Character.PrimaryPart then 
+                        v.Transparency = 0 
+                    end 
+                end)
+            end
+        end
+        viewmodel[ent.Name] = nil
+		task.wait(1)
+	end
+	PlayerViewModel = vape.Categories.Modules:CreateModule({
+		Name = 'PlayerViewModel',
+		Function = function(call)
+			if call then
+				for i,v in playersService:GetPlayers() do
+					table.insert(PlayerViewModel.Connections, v.CharacterAdded:Connect(function()
+						pcall(function() removeModel(v) end)
+						task.spawn(pcall, reModel, v)
+					end))
+				end
+				table.insert(PlayerViewModel.Connections, playersService.PlayerAdded:Connect(function(v)
+					table.insert(PlayerViewModel.Connections, v.CharacterAdded:Connect(function()
+						task.spawn(pcall, removeModel, v)
+						task.spawn(pcall, reModel, v)
+					end))
+				end))
+				RunLoops:BindToHeartbeat('PlayerVM', function()
+					for i,v in playersService:GetPlayers() do
+						if isAlive(v) and not viewmodel[v.Name] then
+                            if not PlayerViewModel.Enabled then break end
+							task.spawn(pcall, reModel, v)
+						end
+					end
+				end)
+			else
+                RunLoops:UnbindFromHeartbeat('PlayerVM')
+                for i,v in playersService:GetPlayers() do
+                    task.spawn(pcall, removeModel, v)
+                end
+			end
+		end,
+		HoverText = 'Turns you into a curtain model'
+	})
+    viewmodelMode = PlayerViewModel:CreateDropdown({
+        Name = 'Model',
+        List = {'Among Us', 'Rabbit'},
+        Function = function()
+			PlayerViewModel:Toggle()
+        end,
+        Default = 'Among Us'
+    })
+end);
+
+
+run(function()
+	local queuecardvisuals = {};
+	local queucardvisualsgradientoption = {};
+	local queuecardvisualhighlight = {};
+	local queuecardmodshighlightcolor = newcolor();
+	local queuecardvisualscolor = newcolor();
+	local queuecardvisualscolor2 = newcolor();
+	local queuecardobjects = Performance.new();
+	local queuecardvisualsround = {Value = 4};
+	local queuecardfunc: () -> () = function()
+		if not lplr.PlayerGui:FindFirstChild('QueueApp') then return end;
+		if not queuecardvisuals.Enabled then return end;
+		local card: Frame = lplr.PlayerGui.QueueApp:WaitForChild('1', math.huge);
+		local cardcorner: UICorner = card:FindFirstChildOfClass('UICorner') or Instance.new('UICorner', card);
+		card.BackgroundColor3 = Color3.fromHSV(queuecardvisualscolor.Hue, queuecardvisualscolor.Sat, queuecardvisualscolor.Value);
+		cardcorner.CornerRadius = queuecardvisualsround.Value;
+		if table.find(queuecardobjects, cardcorner) == nil then 
+			table.insert(queuecardobjects, cardcorner);
+		end;
+		if queucardvisualsgradientoption.Enabled then 
+			card.BackgroundColor3 = Color3.fromRGB(255, 255, 255);
+			local gradient = card:FindFirstChildWhichIsA('UIGradient') or Instance.new('UIGradient', card);
+			gradient.Color = ColorSequence.new({
+				[1] = ColorSequenceKeypoint.new(0, Color3.fromHSV(queuecardvisualscolor.Hue, queuecardvisualscolor.Sat, queuecardvisualscolor.Value)), 
+				[2] = ColorSequenceKeypoint.new(1, Color3.fromHSV(queuecardvisualscolor2.Hue, queuecardvisualscolor2.Sat, queuecardvisualscolor2.Value))
+			});
+			if table.find(queuecardobjects, gradient) == nil then
+				table.insert(queuecardobjects, gradient);
+			end;
+		end;
+		if queuecardvisualhighlight.Enabled then 
+			local highlight: UIStroke? = card:FindFirstChildOfClass('UIStroke') or Instance.new('UIStroke', card);
+			highlight.Thickness = 1.7;
+			highlight.Color = Color3.fromHSV(queuecardmodshighlightcolor.Hue, queuecardmodshighlightcolor.Sat, queuecardmodshighlightcolor.Value);
+			if table.find(queuecardobjects, highlight) == nil then
+				table.insert(queuecardobjects, highlight);
+			end;
+		else
+			pcall(function() card:FindFirstChildOfClass('UIStroke'):Destroy() end)
+		end;
+	end;
+	queuecardvisuals = vape.Categories.Modules:CreateModule({
+		Name = 'QueueCardVisuals',
+		Function = function(calling: boolean)
+			if calling then 
+				pcall(queuecardfunc);
+				table.insert(queuecardvisuals.Connections, lplr.PlayerGui.ChildAdded:Connect(queuecardfunc));
+			else
+				queuecardobjects:clear(game.Destroy)
+			end
+		end
+	});
+	queucardvisualsgradientoption = queuecardvisuals:CreateToggle({
+		Name = 'Gradient',
+		Function = function(calling)
+			pcall(function() queuecardvisualscolor2.Object.Visible = calling end) 
+		end
+	});
+	queuecardvisualsround = queuecardvisuals:CreateSlider({
+		Name = 'Rounding',
+		Min = 0,
+		Max = 20,
+		Default = 4,
+		Function = function(value: number): ()
+			for i: number, v: UICorner? in queuecardobjects do 
+				if v.ClassName == 'UICorner' then 
+					v.CornerRadius = value;
+				end;
+			end
+		end
+	})
+	queuecardvisualscolor = queuecardvisuals:CreateColorSlider({
+		Name = 'Color',
+		Function = function()
+			task.spawn(pcall, queuecardfunc)
+		end
+	});
+	queuecardvisualscolor2 = queuecardvisuals:CreateColorSlider({
+		Name = 'Color 2',
+		Function = function()
+			task.spawn(pcall, queuecardfunc)
+		end
+	});
+	queuecardvisualhighlight = queuecardvisuals:CreateToggle({
+		Name = 'Highlight',
+		Function = function()
+			task.spawn(pcall, queuecardfunc)
+		end
+	});
+	queuecardmodshighlightcolor = queuecardvisuals:CreateColorSlider({
+		Name = 'Highlight Color',
+		Function = function()
+			task.spawn(pcall, queuecardfunc)
+		end;
+	});
+end);
+
+
+run(function()
+	local Atmosphere = {}
+	local AtmosphereMethod = {Value = 'Custom'}
+	local skythemeobjects = {}
+	local SkyUp = {Value = ''}
+	local SkyDown = {Value = ''}
+	local SkyLeft = {Value = ''}
+	local SkyRight = {Value = ''}
+	local SkyFront = {Value = ''}
+	local SkyBack = {Value = ''}
+	local SkySun = {Value = ''}
+	local SkyMoon = {Value = ''}
+	local SkyColor = {Value = 1}
+	local skyobj
+	local skyatmosphereobj
+	local oldtime
+	local oldobjects = {}
+	local themetable = {
+		Custom = function() 
+			skyobj.SkyboxBk = tonumber(SkyBack.Value) and 'rbxassetid://'..SkyBack.Value or SkyBack.Value
+			skyobj.SkyboxDn = tonumber(SkyDown.Value) and 'rbxassetid://'..SkyDown.Value or SkyDown.Value
+			skyobj.SkyboxFt = tonumber(SkyFront.Value) and 'rbxassetid://'..SkyFront.Value or SkyFront.Value
+			skyobj.SkyboxLf = tonumber(SkyLeft.Value) and 'rbxassetid://'..SkyLeft.Value or SkyLeft.Value
+			skyobj.SkyboxRt = tonumber(SkyRight.Value) and 'rbxassetid://'..SkyRight.Value or SkyRight.Value
+			skyobj.SkyboxUp = tonumber(SkyUp.Value) and 'rbxassetid://'..SkyUp.Value or SkyUp.Value
+			skyobj.SunTextureId = tonumber(SkySun.Value) and 'rbxassetid://'..SkySun.Value or SkySun.Value
+			skyobj.MoonTextureId = tonumber(SkyMoon.Value) and 'rbxassetid://'..SkyMoon.Value or SkyMoon.Value
+		end,
+		Purple = function()
+            skyobj.SkyboxBk = 'rbxassetid://8539982183'
+            skyobj.SkyboxDn = 'rbxassetid://8539981943'
+            skyobj.SkyboxFt = 'rbxassetid://8539981721'
+            skyobj.SkyboxLf = 'rbxassetid://8539981424'
+            skyobj.SkyboxRt = 'rbxassetid://8539980766'
+            skyobj.SkyboxUp = 'rbxassetid://8539981085'
+			skyobj.MoonAngularSize = 0
+            skyobj.SunAngularSize = 0
+            skyobj.StarCount = 3e3
+		end,
+		Galaxy = function()
+            skyobj.SkyboxBk = 'rbxassetid://159454299'
+            skyobj.SkyboxDn = 'rbxassetid://159454296'
+            skyobj.SkyboxFt = 'rbxassetid://159454293'
+            skyobj.SkyboxLf = 'rbxassetid://159454293'
+            skyobj.SkyboxRt = 'rbxassetid://159454293'
+            skyobj.SkyboxUp = 'rbxassetid://159454288'
+			skyobj.SunAngularSize = 0
+		end,
+		BetterNight = function()
+			skyobj.SkyboxBk = 'rbxassetid://155629671'
+            skyobj.SkyboxDn = 'rbxassetid://12064152'
+            skyobj.SkyboxFt = 'rbxassetid://155629677'
+            skyobj.SkyboxLf = 'rbxassetid://155629662'
+            skyobj.SkyboxRt = 'rbxassetid://155629666'
+            skyobj.SkyboxUp = 'rbxassetid://155629686'
+			skyobj.SunAngularSize = 0
+		end,
+		BetterNight2 = function()
+			skyobj.SkyboxBk = 'rbxassetid://248431616'
+            skyobj.SkyboxDn = 'rbxassetid://248431677'
+            skyobj.SkyboxFt = 'rbxassetid://248431598'
+            skyobj.SkyboxLf = 'rbxassetid://248431686'
+            skyobj.SkyboxRt = 'rbxassetid://248431611'
+            skyobj.SkyboxUp = 'rbxassetid://248431605'
+			skyobj.StarCount = 3000
+		end,
+		MagentaOrange = function()
+			skyobj.SkyboxBk = 'rbxassetid://566616113'
+            skyobj.SkyboxDn = 'rbxassetid://566616232'
+            skyobj.SkyboxFt = 'rbxassetid://566616141'
+            skyobj.SkyboxLf = 'rbxassetid://566616044'
+            skyobj.SkyboxRt = 'rbxassetid://566616082'
+            skyobj.SkyboxUp = 'rbxassetid://566616187'
+			skyobj.StarCount = 3000
+		end,
+		Purple2 = function()
+			skyobj.SkyboxBk = 'rbxassetid://8107841671'
+			skyobj.SkyboxDn = 'rbxassetid://6444884785'
+			skyobj.SkyboxFt = 'rbxassetid://8107841671'
+			skyobj.SkyboxLf = 'rbxassetid://8107841671'
+			skyobj.SkyboxRt = 'rbxassetid://8107841671'
+			skyobj.SkyboxUp = 'rbxassetid://8107849791'
+			skyobj.SunTextureId = 'rbxassetid://6196665106'
+			skyobj.MoonTextureId = 'rbxassetid://6444320592'
+			skyobj.MoonAngularSize = 0
+		end,
+		Galaxy2 = function()
+			skyobj.SkyboxBk = 'rbxassetid://14164368678'
+			skyobj.SkyboxDn = 'rbxassetid://14164386126'
+			skyobj.SkyboxFt = 'rbxassetid://14164389230'
+			skyobj.SkyboxLf = 'rbxassetid://14164398493'
+			skyobj.SkyboxRt = 'rbxassetid://14164402782'
+			skyobj.SkyboxUp = 'rbxassetid://14164405298'
+			skyobj.SunTextureId = 'rbxassetid://8281961896'
+			skyobj.MoonTextureId = 'rbxassetid://6444320592'
+			skyobj.SunAngularSize = 0
+			skyobj.MoonAngularSize = 0
+		end,
+		Pink = function()
+			skyobj.SkyboxBk = 'rbxassetid://271042516'
+			skyobj.SkyboxDn = 'rbxassetid://271077243'
+			skyobj.SkyboxFt = 'rbxassetid://271042556'
+			skyobj.SkyboxLf = 'rbxassetid://271042310'
+			skyobj.SkyboxRt = 'rbxassetid://271042467'
+			skyobj.SkyboxUp = 'rbxassetid://271077958'
+		end,
+		Purple3 = function()
+			skyobj.SkyboxBk = 'rbxassetid://433274085'
+			skyobj.SkyboxDn = 'rbxassetid://433274194'
+			skyobj.SkyboxFt = 'rbxassetid://433274131'
+			skyobj.SkyboxLf = 'rbxassetid://433274370'
+			skyobj.SkyboxRt = 'rbxassetid://433274429'
+			skyobj.SkyboxUp = 'rbxassetid://433274285'
+		end,
+		DarkishPink = function()
+			skyobj.SkyboxBk = 'rbxassetid://570555736'
+			skyobj.SkyboxDn = 'rbxassetid://570555964'
+			skyobj.SkyboxFt = 'rbxassetid://570555800'
+			skyobj.SkyboxLf = 'rbxassetid://570555840'
+			skyobj.SkyboxRt = 'rbxassetid://570555882'
+			skyobj.SkyboxUp = 'rbxassetid://570555929'
+		end,
+		Space = function()
+			skyobj.MoonAngularSize = 0
+			skyobj.SunAngularSize = 0
+			skyobj.SkyboxBk = 'rbxassetid://166509999'
+			skyobj.SkyboxDn = 'rbxassetid://166510057'
+			skyobj.SkyboxFt = 'rbxassetid://166510116'
+			skyobj.SkyboxLf = 'rbxassetid://166510092'
+			skyobj.SkyboxRt = 'rbxassetid://166510131'
+			skyobj.SkyboxUp = 'rbxassetid://166510114'
+		end,
+		Galaxy3 = function()
+			skyobj.MoonAngularSize = 0
+			skyobj.SunAngularSize = 0
+			skyobj.SkyboxBk = 'rbxassetid://14543264135'
+			skyobj.SkyboxDn = 'rbxassetid://14543358958'
+			skyobj.SkyboxFt = 'rbxassetid://14543257810'
+			skyobj.SkyboxLf = 'rbxassetid://14543275895'
+			skyobj.SkyboxRt = 'rbxassetid://14543280890'
+			skyobj.SkyboxUp = 'rbxassetid://14543371676'
+		end,
+		NetherWorld = function()
+			skyobj.MoonAngularSize = 0
+			skyobj.SunAngularSize = 0
+			skyobj.SkyboxBk = 'rbxassetid://14365019002'
+			skyobj.SkyboxDn = 'rbxassetid://14365023350'
+			skyobj.SkyboxFt = 'rbxassetid://14365018399'
+			skyobj.SkyboxLf = 'rbxassetid://14365018705'
+			skyobj.SkyboxRt = 'rbxassetid://14365018143'
+			skyobj.SkyboxUp = 'rbxassetid://14365019327'
+		end,
+		Nebula = function()
+			skyobj.MoonAngularSize = 0
+			skyobj.SunAngularSize = 0
+			skyobj.SkyboxBk = 'rbxassetid://5260808177'
+			skyobj.SkyboxDn = 'rbxassetid://5260653793'
+			skyobj.SkyboxFt = 'rbxassetid://5260817288'
+			skyobj.SkyboxLf = 'rbxassetid://5260800833'
+			skyobj.SkyboxRt = 'rbxassetid://5260811073'
+			skyobj.SkyboxUp = 'rbxassetid://5260824661'
+		end,
+		PurpleSpace = function()
+			skyobj.MoonAngularSize = 0
+			skyobj.SunAngularSize = 0
+			skyobj.SkyboxBk = 'rbxassetid://15983968922'
+			skyobj.SkyboxDn = 'rbxassetid://15983966825'
+			skyobj.SkyboxFt = 'rbxassetid://15983965025'
+			skyobj.SkyboxLf = 'rbxassetid://15983967420'
+			skyobj.SkyboxRt = 'rbxassetid://15983966246'
+			skyobj.SkyboxUp = 'rbxassetid://15983964246'
+			skyobj.SkyboxFt = 'rbxassetid://5260817288'
+			skyobj.StarCount = 3000
+		end,
+		PurpleNight = function()
+			skyobj.MoonAngularSize = 0
+			skyobj.SunAngularSize = 0
+			skyobj.SkyboxBk = 'rbxassetid://5260808177'
+			skyobj.SkyboxDn = 'rbxassetid://5260653793'
+			skyobj.SkyboxFt = 'rbxassetid://5260817288'
+			skyobj.SkyboxLf = 'rbxassetid://5260800833'
+			skyobj.SkyboxRt = 'rbxassetid://5260800833'
+			skyobj.SkyboxUp = 'rbxassetid://5084576400'
+		end,
+		Aesthetic = function()
+			skyobj.MoonAngularSize = 0
+			skyobj.SunAngularSize = 0
+			skyobj.SkyboxBk = 'rbxassetid://1417494030'
+			skyobj.SkyboxDn = 'rbxassetid://1417494146'
+			skyobj.SkyboxFt = 'rbxassetid://1417494253'
+			skyobj.SkyboxLf = 'rbxassetid://1417494402'
+			skyobj.SkyboxRt = 'rbxassetid://1417494499'
+			skyobj.SkyboxUp = 'rbxassetid://1417494643'
+		end,
+		Aesthetic2 = function()
+			skyobj.MoonAngularSize = 0
+			skyobj.SunAngularSize = 0
+			skyobj.SkyboxBk = 'rbxassetid://600830446'
+			skyobj.SkyboxDn = 'rbxassetid://600831635'
+			skyobj.SkyboxFt = 'rbxassetid://600832720'
+			skyobj.SkyboxLf = 'rbxassetid://600886090'
+			skyobj.SkyboxRt = 'rbxassetid://600833862'
+			skyobj.SkyboxUp = 'rbxassetid://600835177'
+		end,
+		Pastel = function()
+			skyobj.SunAngularSize = 0
+			skyobj.MoonAngularSize = 0
+			skyobj.SkyboxBk = 'rbxassetid://2128458653'
+			skyobj.SkyboxDn = 'rbxassetid://2128462480'
+			skyobj.SkyboxFt = 'rbxassetid://2128458653'
+			skyobj.SkyboxLf = 'rbxassetid://2128462027'
+			skyobj.SkyboxRt = 'rbxassetid://2128462027'
+			skyobj.SkyboxUp = 'rbxassetid://2128462236'
+		end,
+		PurpleClouds = function()
+			skyobj.SkyboxBk = 'rbxassetid://570557514'
+			skyobj.SkyboxDn = 'rbxassetid://570557775'
+			skyobj.SkyboxFt = 'rbxassetid://570557559'
+			skyobj.SkyboxLf = 'rbxassetid://570557620'
+			skyobj.SkyboxRt = 'rbxassetid://570557672'
+			skyobj.SkyboxUp = 'rbxassetid://570557727'
+		end,
+		BetterSky = function()
+			if skyobj then
+			skyobj.SkyboxBk = 'rbxassetid://591058823'
+			skyobj.SkyboxDn = 'rbxassetid://591059876'
+			skyobj.SkyboxFt = 'rbxassetid://591058104'
+			skyobj.SkyboxLf = 'rbxassetid://591057861'
+			skyobj.SkyboxRt = 'rbxassetid://591057625'
+			skyobj.SkyboxUp = 'rbxassetid://591059642'
+			end
+		end,
+		BetterNight3 = function()
+			skyobj.MoonTextureId = 'rbxassetid://1075087760'
+			skyobj.SkyboxBk = 'rbxassetid://2670643994'
+			skyobj.SkyboxDn = 'rbxassetid://2670643365'
+			skyobj.SkyboxFt = 'rbxassetid://2670643214'
+			skyobj.SkyboxLf = 'rbxassetid://2670643070'
+			skyobj.SkyboxRt = 'rbxassetid://2670644173'
+			skyobj.SkyboxUp = 'rbxassetid://2670644331'
+			skyobj.MoonAngularSize = 1.5
+			skyobj.StarCount = 500
+		end,
+		Orange = function()
+			skyobj.SkyboxBk = 'rbxassetid://150939022'
+			skyobj.SkyboxDn = 'rbxassetid://150939038'
+			skyobj.SkyboxFt = 'rbxassetid://150939047'
+			skyobj.SkyboxLf = 'rbxassetid://150939056'
+			skyobj.SkyboxRt = 'rbxassetid://150939063'
+			skyobj.SkyboxUp = 'rbxassetid://150939082'
+		end,
+		DarkMountains = function()
+			skyobj.SkyboxBk = 'rbxassetid://5098814730'
+			skyobj.SkyboxDn = 'rbxassetid://5098815227'
+			skyobj.SkyboxFt = 'rbxassetid://5098815653'
+			skyobj.SkyboxLf = 'rbxassetid://5098816155'
+			skyobj.SkyboxRt = 'rbxassetid://5098820352'
+			skyobj.SkyboxUp = 'rbxassetid://5098819127'
+		end,
+		FlamingSunset = function()
+			skyobj.SkyboxBk = 'rbxassetid://415688378'
+			skyobj.SkyboxDn = 'rbxassetid://415688193'
+			skyobj.SkyboxFt = 'rbxassetid://415688242'
+			skyobj.SkyboxLf = 'rbxassetid://415688310'
+			skyobj.SkyboxRt = 'rbxassetid://415688274'
+			skyobj.SkyboxUp = 'rbxassetid://415688354'
+		end,
+		NewYork = function()
+			skyobj.SkyboxBk = 'rbxassetid://11333973069'
+			skyobj.SkyboxDn = 'rbxassetid://11333969768'
+			skyobj.SkyboxFt = 'rbxassetid://11333964303'
+			skyobj.SkyboxLf = 'rbxassetid://11333971332'
+			skyobj.SkyboxRt = 'rbxassetid://11333982864'
+			skyobj.SkyboxUp = 'rbxassetid://11333967970'
+			skyobj.SunAngularSize = 0
+		end,
+		Aesthetic3 = function()
+			skyobj.SkyboxBk = 'rbxassetid://151165214'
+			skyobj.SkyboxDn = 'rbxassetid://151165197'
+			skyobj.SkyboxFt = 'rbxassetid://151165224'
+			skyobj.SkyboxLf = 'rbxassetid://151165191'
+			skyobj.SkyboxRt = 'rbxassetid://151165206'
+			skyobj.SkyboxUp = 'rbxassetid://151165227'
+		end,
+		FakeClouds = function()
+			skyobj.SkyboxBk = 'rbxassetid://8496892810'
+			skyobj.SkyboxDn = 'rbxassetid://8496896250'
+			skyobj.SkyboxFt = 'rbxassetid://8496892810'
+			skyobj.SkyboxLf = 'rbxassetid://8496892810'
+			skyobj.SkyboxRt = 'rbxassetid://8496892810'
+			skyobj.SkyboxUp = 'rbxassetid://8496897504'
+			skyobj.SunAngularSize = 0
+		end,
+		LunarNight = function()
+			skyobj.SkyboxBk = 'rbxassetid://187713366'
+			skyobj.SkyboxDn = 'rbxassetid://187712428'
+			skyobj.SkyboxFt = 'rbxassetid://187712836'
+			skyobj.SkyboxLf = 'rbxassetid://187713755'
+			skyobj.SkyboxRt = 'rbxassetid://187714525'
+			skyobj.SkyboxUp = 'rbxassetid://187712111'
+			skyobj.SunAngularSize = 0
+			skyobj.StarCount = 0
+		end,
+		PitchDark = function()
+			skyobj.StarCount = 0
+			oldtime = lightingService.TimeOfDay
+			lightingService.TimeOfDay = '00:00:00'
+			table.insert(Atmosphere.Connections, lightingService:GetPropertyChangedSignal('TimeOfDay'):Connect(function()
+				skyobj.StarCount = 0
+				lightingService.TimeOfDay = '00:00:00'
+			end))
+		end
+	}
+
+	Atmosphere = vape.Categories.Modules:CreateModule({
+		Name = 'Atmosphere',
+		ExtraText = function()
+			return AtmosphereMethod.Value ~= 'Custom' and AtmosphereMethod.Value or ''
+		end,
+		Function = function(callback)
+			if callback then 
+				for i,v in next, (lightingService:GetChildren()) do 
+					if v:IsA('PostEffect') or v:IsA('Sky') then 
+						table.insert(oldobjects, v)
+						v.Parent = game
+					end
+				end
+				skyobj = Instance.new('Sky')
+				skyobj.Parent = lightingService
+				skyatmosphereobj = Instance.new('ColorCorrectionEffect')
+			    skyatmosphereobj.TintColor = Color3.fromHSV(SkyColor.Hue, SkyColor.Sat, SkyColor.Value)
+			    skyatmosphereobj.Parent = lightingService
+				task.spawn(themetable[AtmosphereMethod.Value])
+			else
+				if skyobj then skyobj:Destroy() end
+				if skyatmosphereobj then skyatmosphereobj:Destroy() end
+				for i,v in next, (oldobjects) do 
+					v.Parent = lightingService
+				end
+				if oldtime then 
+					lightingService.TimeOfDay = oldtime
+					oldtime = nil
+				end
+				table.clear(oldobjects)
+			end
+		end
+	})
+	local themetab = {'Custom'}
+	for i,v in themetable do 
+		table.insert(themetab, i)
+	end
+	AtmosphereMethod = Atmosphere:CreateDropdown({
+		Name = 'Mode',
+		List = themetab,
+		Function = function(val)
+			task.spawn(function()
+			if Atmosphere.Enabled then 
+				Atmosphere.ToggleButton()
+				if val == 'Custom' then task.wait() end -- why is this needed :bruh:
+				Atmosphere.ToggleButton()
+			end
+			for i,v in skythemeobjects do 
+				v.Object.Visible = AtmosphereMethod.Value == 'Custom'
+			end
+		    end)
+		end
+	})
+	SkyUp = Atmosphere:CreateTextBox({
+		Name = 'SkyUp',
+		TempText = 'Sky Top ID',
+		FocusLost = function(enter) 
+			if Atmosphere.Enabled then 
+				Atmosphere.ToggleButton()
+				Atmosphere.ToggleButton()
+			end
+		end
+	})
+	SkyDown = Atmosphere:CreateTextBox({
+		Name = 'SkyDown',
+		TempText = 'Sky Bottom ID',
+		FocusLost = function(enter) 
+			if Atmosphere.Enabled then 
+				Atmosphere.ToggleButton()
+				Atmosphere.ToggleButton()
+			end
+		end
+	})
+	SkyLeft = Atmosphere:CreateTextBox({
+		Name = 'SkyLeft',
+		TempText = 'Sky Left ID',
+		FocusLost = function(enter) 
+			if Atmosphere.Enabled then 
+				Atmosphere.ToggleButton()
+				Atmosphere.ToggleButton()
+			end
+		end
+	})
+	SkyRight = Atmosphere:CreateTextBox({
+		Name = 'SkyRight',
+		TempText = 'Sky Right ID',
+		FocusLost = function(enter) 
+			if Atmosphere.Enabled then 
+				Atmosphere.ToggleButton()
+				Atmosphere.ToggleButton()
+			end
+		end
+	})
+	SkyFront = Atmosphere:CreateTextBox({
+		Name = 'SkyFront',
+		TempText = 'Sky Front ID',
+		FocusLost = function(enter) 
+			if Atmosphere.Enabled then 
+				Atmosphere.ToggleButton()
+				Atmosphere.ToggleButton()
+			end
+		end
+	})
+	SkyBack = Atmosphere:CreateTextBox({
+		Name = 'SkyBack',
+		TempText = 'Sky Back ID',
+		FocusLost = function(enter) 
+			if Atmosphere.Enabled then 
+				Atmosphere.ToggleButton()
+				Atmosphere.ToggleButton()
+			end
+		end
+	})
+	SkySun = Atmosphere:CreateTextBox({
+		Name = 'SkySun',
+		TempText = 'Sky Sun ID',
+		FocusLost = function(enter) 
+			if Atmosphere.Enabled then 
+				Atmosphere.ToggleButton()
+				Atmosphere.ToggleButton()
+			end
+		end
+	})
+	SkyMoon = Atmosphere:CreateTextBox({
+		Name = 'SkyMoon',
+		TempText = 'Sky Moon ID',
+		FocusLost = function(enter) 
+			if Atmosphere.Enabled then 
+				Atmosphere.ToggleButton()
+				Atmosphere.ToggleButton()
+			end
+		end
+	})
+	SkyColor = Atmosphere:CreateColorSlider({
+		Name = 'Color',
+		Function = function(h, s, v)
+			if skyatmosphereobj then 
+				skyatmosphereobj.TintColor = Color3.fromHSV(SkyColor.Hue, SkyColor.Sat, SkyColor.Value)
+			end
+		end
+	})
+	table.insert(skythemeobjects, SkyUp)
+	table.insert(skythemeobjects, SkyDown)
+	table.insert(skythemeobjects, SkyLeft)
+	table.insert(skythemeobjects, SkyRight)
+	table.insert(skythemeobjects, SkyFront)
+	table.insert(skythemeobjects, SkyBack)
+	table.insert(skythemeobjects, SkySun)
+	table.insert(skythemeobjects, SkyMoon)
+end)
+
+run(function() -- pasted from old render once again
+	local HotbarVisuals: vapemodule = {};
+	local HotbarRounding: vapeminimodule = {};
+	local HotbarHighlight: vapeminimodule = {};
+	local HotbarColorToggle: vapeminimodule = {};
+	local HotbarHideSlotIcons: vapeminimodule = {};
+	local HotbarSlotNumberColorToggle: vapemodule = {};
+	local HotbarSpacing: vapeslider = {Value = 0};
+	local HotbarInvisibility: vapeslider = {Value = 4};
+	local HotbarRoundRadius: vapeslider = {Value = 3};
+	local HotbarAnimations: vapeminimodule = {};
+	local HotbarColor: vapeminimodule = {};
+	local HotbarHighlightColor: vapeminimodule = {};
+	local HotbarSlotNumberColor: vapeminimodule = {};
+	local hotbarcoloricons: securetable = Performance.new();
+	local hotbarsloticons: securetable = Performance.new();
+	local hotbarobjects: securetable = Performance.new();
+	local HotbarVisualsGradient: vapeminimodule = {};
+	local hotbarslotgradients: securetable = Performance.new();
+	local HotbarMinimumRotation: vapeslider = {Value = 0};
+	local HotbarMaximumRotation: vapeslider = {Value = 60};
+	local HotbarAnimationSpeed: vapeslider = {Value = 8};
+	local HotbarVisualsHighlightSize: vapeslider = {Value = 0};
+	local HotbarVisualsGradientColor: vapecolorslider = {};
+	local HotbarVisualsGradientColor2: vapecolorslider = {};
+	local HotbarAnimationThreads: securetable = Performance.new();
+	local inventoryiconobj;
+	local hotbarFunction = function()
+		local inventoryicons = ({pcall(function() return lplr.PlayerGui.hotbar['1'].ItemsHotbar end)})[2]
+		if inventoryicons and type(inventoryicons) == 'userdata' then
+			inventoryiconobj = inventoryicons;
+			pcall(function() inventoryicons:FindFirstChildOfClass('UIListLayout').Padding = UDim.new(0, HotbarSpacing.Value) end);
+			for i,v in inventoryicons:GetChildren() do 
+				local sloticon = ({pcall(function() return v:FindFirstChildWhichIsA('ImageButton'):FindFirstChildWhichIsA('TextLabel') end)})[2]
+				if type(sloticon) ~= 'userdata' then 
+					continue
+				end
+				table.insert(hotbarcoloricons, sloticon.Parent);
+				sloticon.Parent.Transparency = (0.1 * HotbarInvisibility.Value);
+				if HotbarColorToggle.Enabled and not HotbarVisualsGradient.Enabled then 
+					sloticon.Parent.BackgroundColor3 = Color3.fromHSV(HotbarColor.Hue, HotbarColor.Sat, HotbarColor.Value)
+				end
+				local gradient;
+				if HotbarVisualsGradient.Enabled then 
+					sloticon.Parent.BackgroundColor3 = Color3.fromRGB(255, 255, 255);
+					if sloticon.Parent:FindFirstChildWhichIsA('UIGradient') == nil then 
+						gradient = Instance.new('UIGradient') 
+						local color = Color3.fromHSV(HotbarVisualsGradientColor.Hue, HotbarVisualsGradientColor.Sat, HotbarVisualsGradientColor.Value)
+						local color2 = Color3.fromHSV(HotbarVisualsGradientColor2.Hue, HotbarVisualsGradientColor2.Sat, HotbarVisualsGradientColor2.Value)
+						gradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, color), ColorSequenceKeypoint.new(1, color2)})
+						gradient.Parent = sloticon.Parent
+						table.insert(hotbarslotgradients, gradient)
+						table.insert(hotbarcoloricons, sloticon.Parent) 
+					end;
+					if gradient then 
+						HotbarAnimationThreads[gradient] = task.spawn(function()
+							repeat
+								task.wait();
+								if not HotbarAnimations.Enabled then 
+									continue;
+								end;
+								local integers: table = {
+									[1] = HotbarMinimumRotation.Value + math.random(1, 15),
+									[2] = HotbarMaximumRotation.Value - math.random(1, 14)
+								};
+								for i: number, v: number in integers do 
+									local rotationtween: Tween = tweenService:Create(gradient, TweenInfo.new(0.1 * HotbarAnimationSpeed.Value), {Rotation = v});
+									rotationtween:Play();
+									rotationtween.Completed:Wait();
+									task.wait(0.3);
+								end;
+							until (not HotbarVisuals.Enabled)
+						end);
+					end;
+				end
+				if HotbarRounding.Enabled then 
+					local uicorner = Instance.new('UICorner')
+					uicorner.Parent = sloticon.Parent
+					uicorner.CornerRadius = UDim.new(0, HotbarRoundRadius.Value)
+					table.insert(hotbarobjects, uicorner)
+				end
+				if HotbarHighlight.Enabled then
+					local highlight = Instance.new('UIStroke')
+					highlight.Color = Color3.fromHSV(HotbarHighlightColor.Hue, HotbarHighlightColor.Sat, HotbarHighlightColor.Value)
+					highlight.Thickness = 1.3 + (0.1 * HotbarVisualsHighlightSize.Value);
+					highlight.Parent = sloticon.Parent
+					table.insert(hotbarobjects, highlight)
+				end
+				if HotbarHideSlotIcons.Enabled then 
+					sloticon.Visible = false 
+				end
+				table.insert(hotbarsloticons, sloticon)
+			end 
+		end
+	end
+	HotbarVisuals = vape.Categories.Modules:CreateModule({
+		Name = 'HotbarVisuals',
+		Function = function(calling)
+			if calling then 
+				task.spawn(function()
+					table.insert(HotbarVisuals.Connections, lplr.PlayerGui.DescendantAdded:Connect(function(v)
+						if v.Name == 'hotbar' then
+							hotbarFunction()
+						end
+					end))
+					hotbarFunction()
+				end)
+				table.insert(HotbarVisuals.Connections, runService.RenderStepped:Connect(function()
+					for i,v in hotbarcoloricons do 
+						pcall(function() v.Transparency = (0.1 * HotbarInvisibility.Value) end); 
+					end	
+				end))
+			else
+				HotbarAnimationThreads:clear(task.cancel);
+				for i,v in hotbarsloticons do 
+					pcall(function() v.Visible = true end)
+				end
+				for i,v in hotbarcoloricons do 
+					pcall(function() v.BackgroundColor3 = Color3.fromRGB(29, 36, 46) end)
+				end
+				for i,v in hotbarobjects do
+					pcall(function() v:Destroy() end)
+				end
+				for i,v in hotbarslotgradients do 
+					pcall(function() v:Destroy() end)
+				end
+				table.clear(hotbarobjects)
+				table.clear(hotbarsloticons)
+				table.clear(hotbarcoloricons)
+			end
+		end
+	})
+	HotbarColorToggle = HotbarVisuals:CreateToggle({
+		Name = 'Slot Color',
+		Function = function(calling)
+			pcall(function() HotbarColor.Object.Visible = calling end)
+			pcall(function() HotbarColorToggle.Object.Visible = calling end)
+			if HotbarVisuals.Enabled then 
+				HotbarVisuals:Toggle()
+				HotbarVisuals:Toggle()
+			end
+		end
+	})
+	HotbarVisualsGradient = HotbarVisuals:CreateToggle({
+		Name = 'Gradient Slot Color',
+		Function = function(calling)
+			pcall(function() HotbarVisualsGradientColor.Object.Visible = calling end)
+			pcall(function() HotbarVisualsGradientColor2.Object.Visible = calling end)
+			HotbarMinimumRotation.Object.Visible = calling and HotbarAnimations.Enabled;
+			HotbarMaximumRotation.Object.Visible = calling and HotbarAnimations.Enabled;
+			HotbarAnimationSpeed.Object.Visible = calling and HotbarAnimations.Enabled;
+			if HotbarVisuals.Enabled then 
+				HotbarVisuals:Toggle()
+				HotbarVisuals:Toggle()
+			end
+		end
+	})
+	HotbarVisualsGradientColor = HotbarVisuals:CreateColorSlider({
+		Name = 'Gradient Color',
+		Function = function(h, s, v)
+			for i,v in hotbarslotgradients do 
+				pcall(function() v.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromHSV(HotbarVisualsGradientColor.Hue, HotbarVisualsGradientColor.Sat, HotbarVisualsGradientColor.Value)), ColorSequenceKeypoint.new(1, Color3.fromHSV(HotbarVisualsGradientColor2.Hue, HotbarVisualsGradientColor2.Sat, HotbarVisualsGradientColor2.Value))}) end)
+			end
+		end
+	});
+	HotbarAnimations = HotbarVisuals:CreateToggle({
+		Name = 'Animations',
+		HoverText = 'Animates hotbar gradient rotation.',
+		Function = function(calling: boolean)
+			HotbarMinimumRotation.Object.Visible = calling;
+			HotbarMaximumRotation.Object.Visible = calling;
+			HotbarAnimationSpeed.Object.Visible = calling;
+		end
+	});
+	HotbarVisualsGradientColor2 = HotbarVisuals:CreateColorSlider({
+		Name = 'Gradient Color 2',
+		Function = function(h, s, v)
+			for i,v in hotbarslotgradients do 
+				pcall(function() v.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromHSV(HotbarVisualsGradientColor.Hue, HotbarVisualsGradientColor.Sat, HotbarVisualsGradientColor.Value)), ColorSequenceKeypoint.new(1, Color3.fromHSV(HotbarVisualsGradientColor2.Hue, HotbarVisualsGradientColor2.Sat, HotbarVisualsGradientColor2.Value))}) end)
+			end
+		end
+	});
+	HotbarMinimumRotation = HotbarVisuals:CreateSlider({
+		Name = 'Minimum',
+		Min = 0,
+		Max = 75,
+		Function = function(...) end
+	});
+	HotbarMaximumRotation = HotbarVisuals:CreateSlider({
+		Name = 'Maximum',
+		Min = 10,
+		Max = 100,
+		Function = function(...) end
+	});
+	HotbarAnimationSpeed = HotbarVisuals:CreateSlider({
+		Name = 'Speed',
+		Min = 0,
+		Max = 15,
+		Default = 8,
+		Function = function(...) end
+	});
+	HotbarColor = HotbarVisuals:CreateColorSlider({
+		Name = 'Slot Color',
+		Function = function(h, s, v)
+			for i,v in hotbarcoloricons do
+				if HotbarColorToggle.Enabled then
+					pcall(function() v.BackgroundColor3 = Color3.fromHSV(HotbarColor.Hue, HotbarColor.Sat, HotbarColor.Value) end) -- for some reason the 'h, s, v' didn't work :(
+				end
+			end
+		end
+	})
+	HotbarRounding = HotbarVisuals:CreateToggle({
+		Name = 'Rounding',
+		Function = function(calling)
+			pcall(function() HotbarRoundRadius.Object.Visible = calling end)
+			if HotbarVisuals.Enabled then 
+				HotbarVisuals:Toggle()
+				HotbarVisuals:Toggle()
+			end
+		end
+	})
+	HotbarRoundRadius = HotbarVisuals:CreateSlider({
+		Name = 'Corner Radius',
+		Min = 1,
+		Max = 20,
+		Function = function(calling)
+			for i,v in hotbarobjects do 
+				pcall(function() v.CornerRadius = UDim.new(0, calling) end)
+			end
+		end
+	});
+	HotbarHighlight = HotbarVisuals:CreateToggle({
+		Name = 'Outline Highlight',
+		Function = function(calling)
+			pcall(function() HotbarHighlightColor.Object.Visible = calling end)
+			pcall(function() HotbarVisualsHighlightSize.Object.Visible = calling end);
+			if HotbarVisuals.Enabled then 
+				HotbarVisuals:Toggle()
+				HotbarVisuals:Toggle()
+			end
+		end
+	})
+	HotbarHighlightColor = HotbarVisuals:CreateColorSlider({
+		Name = 'Highlight Color',
+		Function = function(h, s, v)
+			for i,v in hotbarobjects do 
+				if v:IsA('UIStroke') and HotbarHighlight.Enabled then 
+					pcall(function() v.Color = Color3.fromHSV(HotbarHighlightColor.Hue, HotbarHighlightColor.Sat, HotbarHighlightColor.Value) end)
+				end
+			end
+		end
+	});
+	HotbarVisualsHighlightSize = HotbarVisuals:CreateSlider({
+		Name = 'Highlight Size',
+		Min = 0,
+		Max = 8,
+		Function = function(value: number)
+			for i: number, v: UIStroke? in hotbarobjects do 
+				if v.ClassName == 'UIStroke' and HotbarHighlight.Enabled then 
+					pcall(function() v.Thickness = 1.3 + (0.1 * value) end)
+				end
+			end
+		end
+	});
+	HotbarHideSlotIcons = HotbarVisuals:CreateToggle({
+		Name = 'No Slot Numbers',
+		Function = function()
+			if HotbarVisuals.Enabled then 
+				HotbarVisuals:Toggle()
+				HotbarVisuals:Toggle()
+			end
+		end
+	})
+	HotbarInvisibility = HotbarVisuals:CreateSlider({
+		Name = 'Invisibility',
+		Min = 0,
+		Max = 10,
+		Default = 4,
+		Function = function(value)
+			for i,v in hotbarcoloricons do 
+				pcall(function() v.Transparency = (0.1 * value) end); 
+			end
+		end
+	})
+	HotbarSpacing = HotbarVisuals:CreateSlider({
+		Name = 'Spacing',
+		Min = 0,
+		Max = 5,
+		Function = function(value)
+			if HotbarVisuals.Enabled then 
+				pcall(function() inventoryiconobj:FindFirstChildOfClass('UIListLayout').Padding = UDim.new(0, value) end)
+			end
+		end
+	});
+
+	HotbarAnimationThreads.oncleanevent:Connect(task.cancel);
+	HotbarColor.Object.Visible = false;
+	HotbarRoundRadius.Object.Visible = false;
+	HotbarHighlightColor.Object.Visible = false;
+	HotbarMinimumRotation.Object.Visible = false;
+	HotbarMaximumRotation.Object.Visible = false;
+	HotbarAnimationSpeed.Object.Visible = false;
+end);
