@@ -18,28 +18,32 @@ local function downloadFile(path, func)
             repo = "wrealaero/AeroV4"  -- Your GitHub
         end
 
+        -- Check if commit.txt exists; if not, use "main"
+        local commit = isfile("newvape/profiles/commit.txt") and readfile("newvape/profiles/commit.txt") or "main"
+
+        -- Debugging message
+        print("Downloading: " .. filename .. " from " .. repo .. " (commit: " .. commit .. ")")
+
+        -- Try to fetch the file from GitHub
         local suc, res = pcall(function()
-            return game:HttpGet('https://raw.githubusercontent.com/'..repo..'/'..readfile('newvape/profiles/commit.txt')..'/'..filename, true)
+            return game:HttpGet("https://raw.githubusercontent.com/"..repo.."/"..commit.."/"..filename, true)
         end)
-        if not suc or res == '404: Not Found' then
-            error(res)
+
+        -- If the request fails, print the error and stop
+        if not suc or res == "404: Not Found" or res == "" then
+            warn("Failed to download: " .. filename .. " | Error: " .. tostring(res))
+            return
         end
-        if path:find('.lua') then
-            res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
+
+        -- Add watermark for cache clearing
+        if path:find(".lua") then
+            res = "--This watermark is used to delete the file if it's cached, remove it to make the file persist after Vape updates.\n" .. res
         end
+
+        -- Save the file
         writefile(path, res)
     end
     return (func or readfile)(path)
-end
-
-local function wipeFolder(path)
-	if not isfolder(path) then return end
-	for _, file in listfiles(path) do
-		if file:find('loader') then continue end
-		if isfile(file) and select(1, readfile(file):find('--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.')) == 1 then
-			delfile(file)
-		end
-	end
 end
 
 for _, folder in {'newvape', 'newvape/games', 'newvape/profiles', 'newvape/assets', 'newvape/libraries', 'newvape/guis'} do
