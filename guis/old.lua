@@ -3497,6 +3497,10 @@ mainapi:CreateCategory({
 	Name = 'Minigames',
 	Icon = getcustomasset('newvape/assets/old/worldicon.png')
 })
+mainapi:CreateCategory({
+	Name = 'Modules',
+	Icon = getcustomasset('newvape/assets/new/module.png')
+})
 mainapi.Legit = mainapi:CreateLegit({
 	Name = 'Legit'
 })
@@ -3795,7 +3799,8 @@ topbar:CreateButton({
 			MinigamesCategory = 8,
 			LegitCategory = 9,
 			FriendsCategory = 10,
-			ProfilesCategory = 11
+			ProfilesCategory = 11,
+			ModulesCategory = 12
 		}
 		local categories = {}
 		for _, v in mainapi.Categories do
