@@ -1,6 +1,4 @@
 --This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
---This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
---This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 local run = function(func)
 	func()
 end
@@ -715,21 +713,20 @@ run(function()
 			return rawget(self, ind)
 		end
 	})
-	getgenv().bedwars = bedwars
 
 	local remoteNames = {
 		AckKnockback = debug.getproto(debug.getproto(Knit.Controllers.KnockbackController.KnitStart, 1), 1),
 		AfkStatus = debug.getproto(Knit.Controllers.AfkController.KnitStart, 1),
 		AttackEntity = Knit.Controllers.SwordController.sendServerRequest,
 		BeePickup = Knit.Controllers.BeeNetController.trigger,
-		ConsumeBattery = debug.getproto(Knit.Controllers.BatteryController.KnitStart, 1),
+		--ConsumeBattery = debug.getproto(debug.getproto(Knit.Controllers.BatteryController.KnitStart, 1), 1),
 		CannonAim = debug.getproto(Knit.Controllers.CannonController.startAiming, 5),
 		CannonLaunch = Knit.Controllers.CannonHandController.launchSelf,
 		ConsumeItem = debug.getproto(Knit.Controllers.ConsumeController.onEnable, 1),
 		ConsumeSoul = Knit.Controllers.GrimReaperController.consumeSoul,
 		ConsumeTreeOrb = debug.getproto(Knit.Controllers.EldertreeController.createTreeOrbInteraction, 1),
 		DepositPinata = debug.getproto(debug.getproto(Knit.Controllers.PiggyBankController.KnitStart, 2), 5),
-		DragonBreath = debug.getproto(Knit.Controllers.VoidDragonController.KnitStart, 4),
+		--DragonBreath = debug.getproto(Knit.Controllers.VoidDragonController.KnitStart, 4),
 		DragonEndFly = debug.getproto(Knit.Controllers.VoidDragonController.flapWings, 1),
 		DragonFly = Knit.Controllers.VoidDragonController.flapWings,
 		DropItem = Knit.Controllers.ItemDropController.dropItemInHand,
@@ -737,9 +734,9 @@ run(function()
 		FireProjectile = debug.getupvalue(Knit.Controllers.ProjectileController.launchProjectileWithValues, 2),
 		GroundHit = Knit.Controllers.FallDamageController.KnitStart,
 		GuitarHeal = Knit.Controllers.GuitarController.performHeal,
-		HannahKill = debug.getproto(Knit.Controllers.HannahController.KnitStart, 2),
+		--HannahKill = debug.getproto(debug.getproto(Knit.Controllers.HannahController.KnitStart, 2), 1),
 		HarvestCrop = debug.getproto(debug.getproto(Knit.Controllers.CropController.KnitStart, 4), 1),
-		KaliyahPunch = debug.getproto(debug.getproto(Knit.Controllers.DragonSlayerController.KnitStart, 2), 1),
+		--KaliyahPunch = debug.getproto(debug.getproto(Knit.Controllers.DragonSlayerController.KnitStart, 2), 1),
 		MageSelect = debug.getproto(Knit.Controllers.MageController.registerTomeInteraction, 1),
 		MinerDig = debug.getproto(Knit.Controllers.MinerController.setupMinerPrompts, 1),
 		PickupItem = Knit.Controllers.ItemDropController.checkForPickup,
@@ -920,7 +917,7 @@ run(function()
 			local dblock, dpos = getPlacedBlock(pos)
 			if not dblock then return end
 
-			if (workspace:GetServerTimeNow() - bedwars.SwordController.lastAttack) > 0.4 then
+			if (game.Workspace:GetServerTimeNow() - bedwars.SwordController.lastAttack) > 0.4 then
 				local breaktype = bedwars.ItemMeta[dblock.Name].block.breakType
 				local tool = store.tools[breaktype]
 				if tool then
@@ -985,14 +982,15 @@ run(function()
 		end
 
 		if new.Game ~= old.Game then
-			getgenv().store.matchState = new.Game.matchState
-			getgenv().store.queueType = new.Game.queueType or 'bedwars_test'
+			store.matchState = new.Game.matchState
+			store.queueType = new.Game.queueType or 'bedwars_test'
 		end
 
 		if new.Inventory ~= old.Inventory then
 			local newinv = (new.Inventory and new.Inventory.observedInventory or {inventory = {}})
 			local oldinv = (old.Inventory and old.Inventory.observedInventory or {inventory = {}})
 			store.inventory = newinv
+			store.localInventory = newinv
 
 			if newinv ~= oldinv then
 				vapeEvents.InventoryChanged:Fire()
@@ -1085,7 +1083,7 @@ run(function()
 		pcall(function()
 			repeat task.wait() until store.matchState ~= 0 or vape.Loaded == nil
 			if vape.Loaded == nil then return end
-			mapname = workspace:WaitForChild('Map', 5):WaitForChild('Worlds', 5):GetChildren()[1].Name
+			mapname = game.Workspace:WaitForChild('Map', 5):WaitForChild('Worlds', 5):GetChildren()[1].Name
 			mapname = string.gsub(string.split(mapname, '_')[2] or mapname, '-', '') or 'Blank'
 		end)
 	end)
@@ -1734,6 +1732,10 @@ run(function()
 	local rayCheck = RaycastParams.new()
 	rayCheck.RespectCanCollide = true
 	local up, down, old = 0, 0
+	local FlyAnywayProgressBar, FlyAnywayProgressBarFrame
+	local onground = false
+	local lastonground = false
+	local groundtime
 
 	Fly = vape.Categories.Blatant:CreateModule({
 		Name = 'Fly',
@@ -1741,6 +1743,11 @@ run(function()
 			frictionTable.Fly = callback or nil
 			updateVelocity()
 			if callback then
+				Fly:Clean(runService.PreSimulation:Connect(function()
+					if FlyAnywayProgressBarFrame then
+						FlyAnywayProgressBarFrame.Frame.BackgroundColor3 = Color3.fromHSV(vape.GUIColor.Hue, vape.GUIColor.Sat, vape.GUIColor.Value)
+					end
+				end))
 				up, down, old = 0, 0, bedwars.BalloonController.deflateBalloon
 				bedwars.BalloonController.deflateBalloon = function() end
 				local tpTick, tpToggle, oldy = tick(), true
@@ -1753,7 +1760,13 @@ run(function()
 						bedwars.BalloonController:inflateBalloon()
 					end
 				end))
+				groundtime = (2.6 + tick())
 				Fly:Clean(runService.PreSimulation:Connect(function(dt)
+					if (math.floor((groundtime - tick()) * 10) / 10) == 0 then
+						groundtime = (2.6 + tick())
+						FlyAnywayProgressBarFrame.Frame.Size = UDim2.new(1, 0, 0, 20)
+					end
+
 					if entitylib.isAlive and not InfiniteFly.Enabled and isnetworkowner(entitylib.character.RootPart) then
 						local flyAllowed = (lplr.Character:GetAttribute('InflatedBalloons') and lplr.Character:GetAttribute('InflatedBalloons') > 0) or getgenv().store.matchState == 2
 						local mass = (1.5 + (flyAllowed and 6 or 0) * (tick() % 0.4 < 0.2 and -1 or 1)) + ((up + down) * VerticalValue.Value)
@@ -1771,6 +1784,13 @@ run(function()
 						end
 
 						if not flyAllowed then
+							local newray = getPlacedBlock(lplr.Character.HumanoidRootPart.Position + Vector3.new(0, (lplr.Character.Humanoid.HipHeight * -2) - 1, 0))
+							onground = newray and true or false
+							if FlyAnywayProgressBarFrame then 
+								FlyAnywayProgressBarFrame.TextLabel.Text = math.max(onground and 2.5 or math.floor((groundtime - tick()) * 10) / 10, 0)..'s'
+								FlyAnywayProgressBarFrame.Frame:TweenSize(UDim2.new(math.max(onground and 2.5 or math.floor((groundtime - tick()) * 10) / 10, 0)/2.5, 0, 0, 20), Enum.EasingDirection.InOut, Enum.EasingStyle.Linear, 0.3, true)
+							end
+							lastonground = onground
 							if tpToggle then
 								local airleft = (tick() - entitylib.character.AirTime)
 								if airleft > 2 then
@@ -1796,12 +1816,19 @@ run(function()
 									end
 								end
 							end
+						else
+							onground = true
+							lastonground = true
 						end
 
 						root.CFrame += destination
 						root.AssemblyLinearVelocity = (moveDirection * velo) + Vector3.new(0, mass, 0)
 					end
 				end))
+				if FlyAnywayProgressBarFrame and not flyAllowed and (not balloons) then 
+					FlyAnywayProgressBarFrame.Visible = true
+					FlyAnywayProgressBarFrame.Frame:TweenSize(UDim2.new(1, 0, 0, 20), Enum.EasingDirection.InOut, Enum.EasingStyle.Linear, 0, true)
+				end
 				Fly:Clean(inputService.InputBegan:Connect(function(input)
 					if not inputService:GetFocusedTextBox() then
 						if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA then
@@ -1827,6 +1854,10 @@ run(function()
 					end)
 				end
 			else
+				groundtime = (2.6 + tick())
+				if FlyAnywayProgressBarFrame then 
+					FlyAnywayProgressBarFrame.Visible = false
+				end
 				bedwars.BalloonController.deflateBalloon = old
 				if PopBalloons.Enabled and entitylib.isAlive and (lplr.Character:GetAttribute('InflatedBalloons') or 0) > 0 then
 					for _ = 1, 3 do
@@ -1839,6 +1870,43 @@ run(function()
 			return 'Heatseeker'
 		end,
 		Tooltip = 'Makes you go zoom.'
+	})
+	FlyAnywayProgressBar = Fly:CreateToggle({
+		Name = 'Progress Bar',
+		Function = function(calling) 
+			if calling then 
+				FlyAnywayProgressBarFrame = Instance.new('Frame')
+				FlyAnywayProgressBarFrame.AnchorPoint = Vector2.new(0.5, 0)
+				FlyAnywayProgressBarFrame.Position = UDim2.new(0.5, 0, 1, -200)
+				FlyAnywayProgressBarFrame.Size = UDim2.new(0.2, 0, 0, 20)
+				FlyAnywayProgressBarFrame.BackgroundTransparency = 0.5
+				FlyAnywayProgressBarFrame.BorderSizePixel = 0
+				FlyAnywayProgressBarFrame.BackgroundColor3 = Color3.new(1,1,1)
+				FlyAnywayProgressBarFrame.Visible = Fly.Enabled
+				FlyAnywayProgressBarFrame.Parent = vape.gui
+				local FlyAnywayProgressBarFrame2 = FlyAnywayProgressBarFrame:Clone()
+				FlyAnywayProgressBarFrame2.AnchorPoint = Vector2.new(0, 0)
+				FlyAnywayProgressBarFrame2.Position = UDim2.new(0, 0, 0, 0)
+				FlyAnywayProgressBarFrame2.Size = UDim2.new(1, 0, 0, 20)
+				FlyAnywayProgressBarFrame2.BackgroundTransparency = 0
+				FlyAnywayProgressBarFrame2.Visible = true
+				FlyAnywayProgressBarFrame2.Parent = FlyAnywayProgressBarFrame
+				local FlyAnywayProgressBartext = Instance.new('TextLabel')
+				FlyAnywayProgressBartext.Text = '2s'
+				FlyAnywayProgressBartext.Font = Enum.Font.Gotham
+				FlyAnywayProgressBartext.TextStrokeTransparency = 0
+				FlyAnywayProgressBartext.TextColor3 =  Color3.new(0.9, 0.9, 0.9)
+				FlyAnywayProgressBartext.TextSize = 20
+				FlyAnywayProgressBartext.Size = UDim2.new(1, 0, 1, 0)
+				FlyAnywayProgressBartext.BackgroundTransparency = 1
+				FlyAnywayProgressBartext.Position = UDim2.new(0, 0, -1, 0)
+				FlyAnywayProgressBartext.Parent = FlyAnywayProgressBarFrame
+			else
+				if FlyAnywayProgressBarFrame then FlyAnywayProgressBarFrame:Destroy() FlyAnywayProgressBarFrame = nil end
+			end
+		end,
+		HoverText = 'show amount of Fly time',
+		Default = true
 	})
 	Value = Fly:CreateSlider({
 		Name = 'Speed',
@@ -2204,7 +2272,8 @@ run(function()
 	local Mouse
 	local Swing
 	local GUI
-	local BoxColor
+	local TargetColor
+	local RangeColor
 	local ParticleTexture
 	local ParticleColor1
 	local ParticleColor2
@@ -2223,6 +2292,44 @@ run(function()
 	task.spawn(function()
 		AttackRemote = bedwars.Client:Get(remotes.AttackEntity).instance
 	end)
+
+	local weapontiers = {
+		[1] = 'wood_sword',
+		[2] = 'stone_sword',
+		[3] = 'iron_sword',
+		[4] = 'diamond_sword',
+		[5] = 'emerald_sword',
+		[6] = 'wood_dao',
+		[7] = 'stone_dao',
+		[8] = 'iron_dao',
+		[9] = 'diamond_dao',
+		[10] = 'emerald_dao',
+		[11] = 'void_sword',
+		[12] = 'rageblade'
+	}
+
+	local getWeapon = function()
+		if KnitInit then
+			return Limit.Enabled and store.hand or store.tools.sword
+		else
+			local tier = -1
+			local swordseleted = {
+				tool = nil
+			}
+			local inv = bedwars.getInventory(lplr)
+			for i,v in inv.items do
+				local index = table.find(weapontiers, v.Name)
+				if index and index > tier then
+					tier = index
+					swordseleted = {
+						tool = v,
+						Tool = v
+					}
+				end
+			end
+			return swordseleted
+		end
+	end
 
 	local function getAttackData()
 		if Mouse.Enabled then
@@ -2276,9 +2383,10 @@ run(function()
 							}
 						}
 					}
-					--debug.setupvalue(bedwars.SwordController.playSwordEffect, 6, fake)
-					--debug.setupvalue(bedwars.ScytheController.playLocalAnimation, 3, fake)
-
+					pcall(function()
+						debug.setupvalue(bedwars.SwordController.playSwordEffect, 6, fake)
+						debug.setupvalue(bedwars.ScytheController.playLocalAnimation, 3, fake)
+					end)
 					task.spawn(function()
 						local started = false
 						repeat
@@ -2404,8 +2512,8 @@ run(function()
 					for i, v in Boxes do
 						v.Adornee = attacked[i] and attacked[i].RootPart or nil
 						if v.Adornee then
-							v.Color3 = Color3.fromHSV(BoxColor.Hue, BoxColor.Sat, BoxColor.Value)
-							v.Transparency = 1 - BoxColor.Opacity
+							v.Color3 = Color3.fromHSV(TargetColor.Hue, TargetColor.Sat, TargetColor.Value)
+							v.Transparency = 1 - TargetColor.Opacity
 						end
 					end
 
@@ -2471,10 +2579,14 @@ run(function()
 	RangeCircle = Killaura:CreateToggle({
 		Name = "Range Visualiser",
 		Function = function(call)
+			RangeColor.Object.Visible = call
 			if call then
 				local suc, err = pcall(function()
 					if (not shared.CheatEngineMode) then
 						RangeCirclePart = Instance.new("MeshPart")
+						RangeCirclePart.CanCollide = false
+						RangeCirclePart.CanTouch = false
+						RangeCirclePart.CanQuery = false
 						RangeCirclePart.MeshId = "rbxassetid://3726303797"
 						if shared.RiseMode and GuiLibrary.GUICoreColor and GuiLibrary.GUICoreColorChanged then
 							RangeCirclePart.Color = GuiLibrary.GUICoreColor
@@ -2482,15 +2594,18 @@ run(function()
 								RangeCirclePart.Color = GuiLibrary.GUICoreColor
 							end)
 						else
-							RangeCirclePart.Color = Color3.fromHSV(BoxColor["Hue"], BoxColor["Sat"], BoxColor.Value)
+							RangeCirclePart.Color = Color3.fromHSV(RangeColor["Hue"], RangeColor["Sat"], RangeColor.Value)
 						end
 						RangeCirclePart.CanCollide = false
 						RangeCirclePart.Anchored = true
 						RangeCirclePart.Material = Enum.Material.Neon
-						RangeCirclePart.Size = Vector3.new(Range.Value * 0.7, 0.01, Range.Value * 0.7)
 						if Killaura.Enabled then
 							RangeCirclePart.Parent = gameCamera
 						end
+						Killaura:Clean(runService.RenderStepped:Connect(function()
+							pcall(function() RangeCirclePart.Size = Vector3.new(Range.Value * 0.75, 0.01, Range.Value * 0.75) end)
+							pcall(function() RangeCirclePart.Position = lplr.Character.HumanoidRootPart.Position - Vector3.new(0, 2, 0) end)
+						end))
 						--bedwars.QueryUtil:setQueryIgnored(RangeCirclePart, true)
 					end
 				end)
@@ -2500,6 +2615,7 @@ run(function()
 							RangeCirclePart:Destroy()
 							RangeCirclePart = nil
 						end
+						print(err)
 						InfoNotification("Killaura - Range Visualiser Circle", "There was an error creating the circle. Disabling...", 2)
 					end)
 				end
@@ -2508,6 +2624,17 @@ run(function()
 					RangeCirclePart:Destroy()
 					RangeCirclePart = nil
 				end
+			end
+		end
+	})
+	RangeColor = Killaura:CreateColorSlider({
+		Name = 'Range Color',
+		Darker = true,
+		DefaultOpacity = 0.5,
+		Visible = false,
+		Function = function(hue, sat, val)
+			if Killaura.Enabled and RangeCirclePart ~= nil then
+				RangeCirclePart.Color = Color3.fromHSV(hue, sat, val)
 			end
 		end
 	})
@@ -2540,7 +2667,7 @@ run(function()
 	Killaura:CreateToggle({
 		Name = 'Show target',
 		Function = function(callback)
-			BoxColor.Object.Visible = callback
+			TargetColor.Object.Visible = callback
 			if callback then
 				for i = 1, 10 do
 					local box = Instance.new('BoxHandleAdornment')
@@ -2551,6 +2678,10 @@ run(function()
 					box.ZIndex = 0
 					box.Parent = vape.gui
 					Boxes[i] = box
+					Killaura:Clean(runService.RenderStepped:Connect(function()
+						pcall(function() box.Transparency = TargetColor.Opacity end)
+						pcall(function() box.Color3.fromHSV(TargetColor.hue, TargetColor.sat, TargetColor.val) end)
+					end))
 				end
 			else
 				for _, v in Boxes do
@@ -2560,15 +2691,12 @@ run(function()
 			end
 		end
 	})
-	BoxColor = Killaura:CreateColorSlider({
-		Name = 'Attack Color',
+	TargetColor = Killaura:CreateColorSlider({
+		Name = 'Target Color',
 		Darker = true,
 		DefaultOpacity = 0.5,
 		Visible = false,
 		Function = function(hue, sat, val)
-			if Killaura.Enabled and RangeCirclePart ~= nil then
-				RangeCirclePart.Color = Color3.fromHSV(hue, sat, val)
-			end
 		end
 	})
 	Killaura:CreateToggle({
@@ -2952,17 +3080,86 @@ run(function()
 end)
 	
 run(function()
-	vape.Categories.Blatant:CreateModule({
-		Name = 'NoFall',
+	local NoFall = {Enabled = false}
+	local SafeRange = {Value = 20}
+	local VelocityThreshold = {Value = 30}
+	local CoreConnection = {Disconnect = function() end}
+
+	local collectionService = game:GetService("CollectionService")
+
+	local blockRaycast = RaycastParams.new()
+	blockRaycast.FilterType = Enum.RaycastFilterType.Include
+
+	local blocks = collectionService:GetTagged("block")
+	blockRaycast.FilterDescendantsInstances = {blocks}
+	vape:Clean(collectionService:GetInstanceAddedSignal("block"):Connect(function(block)
+		table.insert(blocks, block)
+		blockRaycast.FilterDescendantsInstances = {blocks}
+	end))
+	vape:Clean(collectionService:GetInstanceRemovedSignal("block"):Connect(function(block)
+		block = table.find(blocks, block)
+		if block then
+			table.remove(blocks, block)
+			blockRaycast.FilterDescendantsInstances = {blocks}
+		end
+	end))
+
+	NoFall = vape.Categories.Blatant:CreateModule({
+		Name = "NoFall",
 		Function = function(callback)
-			if callback then 
-				bedwars.Client:Get(remotes.GroundHit):SendToServer() 
+			if callback then
+				task.spawn(function()
+					pcall(function() 
+						game:GetService("ReplicatedStorage"):WaitForChild("rbxts_include"):WaitForChild("node_modules"):WaitForChild("@rbxts"):WaitForChild("net"):WaitForChild("out"):WaitForChild("_NetManaged"):WaitForChild("TridentUnanchor"):Destroy()
+					end)
+				end)
+
+				local safeRange = SafeRange.Value
+				local velocityThreshold = -VelocityThreshold.Value
+				
+				CoreConnection = game:GetService("RunService").Heartbeat:Connect(function()
+					if not entitylib.isAlive then return end
+					if LongJump.Enabled then return end
+					local humanoid = entitylib.character.Humanoid
+					local rootPart = entitylib.character.HumanoidRootPart
+					if humanoid:GetState() == Enum.HumanoidStateType.Freefall and rootPart.Velocity.Y < velocityThreshold then
+						local ray = workspace:Raycast(rootPart.Position, Vector3.new(0, -1000, 0), blockRaycast)
+						if ray then
+							local distance = rootPart.Position.Y - ray.Position.Y
+							if distance > safeRange then
+								local newPosition = Vector3.new(
+									rootPart.Position.X,
+									ray.Position.Y + 0.1, 
+									rootPart.Position.Z
+								)
+								rootPart.CFrame = CFrame.new(newPosition) * rootPart.CFrame.Rotation
+							end
+						end
+					end
+				end)				
+			else
+				pcall(function()
+					CoreConnection:Disconnect()
+				end)
 			end
 		end,
-		Tooltip = 'Prevents taking fall damage.'
+		HoverText = "Prevents taking fall damage."
+	})
+	SafeRange = NoFall:CreateSlider({
+		Name = "SafeRange",
+		Function = function() end,
+		Min = 10, 
+		Max = 30,
+		Default = 20
+	})
+	VelocityThreshold = NoFall:CreateSlider({
+		Name = "VelocityThreshold",
+		Function = function() end,
+		Min = 20, 
+		Max = 50,
+		Default = 30
 	})
 end)
-	
 run(function()
 	local old
 	
@@ -3228,7 +3425,7 @@ run(function()
 						if state == Enum.HumanoidStateType.Climbing then return end
 	
 						local root, velo = entitylib.character.RootPart, getSpeed()
-						local moveDirection = AntiFallDirection or entitylib.character.Humanoid.MoveDirection
+						local moveDirection = AntiVoidDirection or entitylib.character.Humanoid.MoveDirection
 						local destination = (moveDirection * math.max(Value.Value - velo, 0) * dt)
 	
 						if WallCheck.Enabled then
@@ -4197,13 +4394,13 @@ run(function()
 			end)
 		end,
 		dragon_slayer = function()
-			kitCollection('KaliyahPunchInteraction', function(v)
-				bedwars.DragonSlayerController:deleteEmblem(v)
-				bedwars.DragonSlayerController:playPunchAnimation(Vector3.zero)
-				bedwars.Client:Get(remotes.KaliyahPunch):SendToServer({
-					target = v
-				})
-			end, 18, true)
+			-- kitCollection('KaliyahPunchInteraction', function(v)
+			-- 	bedwars.DragonSlayerController:deleteEmblem(v)
+			-- 	bedwars.DragonSlayerController:playPunchAnimation(Vector3.zero)
+			-- 	bedwars.Client:Get(remotes.KaliyahPunch):SendToServer({
+			-- 		target = v
+			-- 	})
+			-- end, 18, true)
 		end,
 		farmer_cletus = function()
 			kitCollection('HarvestableCrop', function(v)
@@ -4389,23 +4586,23 @@ run(function()
 				end)
 			end)
 	
-			repeat
-				if bedwars.VoidDragonController.inDragonForm then
-					local plr = entitylib.EntityPosition({
-						Range = 30,
-						Part = 'RootPart',
-						Players = true
-					})
+			-- repeat
+			-- 	if bedwars.VoidDragonController.inDragonForm then
+			-- 		local plr = entitylib.EntityPosition({
+			-- 			Range = 30,
+			-- 			Part = 'RootPart',
+			-- 			Players = true
+			-- 		})
 	
-					if plr then
-						bedwars.Client:Get(remotes.DragonBreath):SendToServer({
-							player = lplr,
-							targetPoint = plr.RootPart.Position
-						})
-					end
-				end
-				task.wait(0.1)
-			until not AutoKit.Enabled
+			-- 		if plr then
+			-- 			bedwars.Client:Get(remotes.DragonBreath):SendToServer({
+			-- 				player = lplr,
+			-- 				targetPoint = plr.RootPart.Position
+			-- 			})
+			-- 		end
+			-- 	end
+			-- 	task.wait(0.1)
+			-- until not AutoKit.Enabled
 		end,
 		warlock = function()
 			local lastTarget
@@ -8433,6 +8630,18 @@ run(function()
 	})
 end)
 
+local function createMonitoredValue(value, onChange)
+	task.spawn(function()
+		local oldValue = value
+		while task.wait() do
+			if oldValue ~= value then
+				onChange(oldValue, value)
+				oldValue = value
+			end
+		end
+	end)
+end
+
 local function createMonitoredTable(originalTable, onChange)
     local proxy = {}
     local mt = {
@@ -8457,4 +8666,9 @@ store = createMonitoredTable(store, function(key, o, n)
 end)
 bedwars = createMonitoredTable(bedwars, function(key, o, n)
 	XFunctions:SetGlobalData('bedwars', bedwars)
+end)
+
+getgenv().GAttacking = Attacking
+createMonitoredValue(Attacking, function(o, n)
+	getgenv().GAttacking = n
 end)
