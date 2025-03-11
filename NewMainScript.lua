@@ -14,42 +14,32 @@ local function downloadFile(path, func)
         local filename = path:gsub("newvape/", "")
 
         -- Override repo for specific files
-        if filename == "main.lua" or filename == "newmainscript.lua" or filename == "universal.lua" then
+        if filename == "main.lua" or filename == "NewMainScript.lua" or filename == "universal.lua" then
             repo = "wrealaero/AeroV4"  -- Your GitHub
         end
 
-        -- Check if commit.txt exists; if not, use "main"
+        -- Use "main" if commit.txt is missing
         local commit = isfile("newvape/profiles/commit.txt") and readfile("newvape/profiles/commit.txt") or "main"
 
-        -- Debugging message
-        print("Downloading: " .. filename .. " from " .. repo .. " (commit: " .. commit .. ")")
+        -- Construct URL
+        local url = "https://raw.githubusercontent.com/"..repo.."/"..commit.."/"..filename
+        print("Downloading: " .. url)  -- Debug print
 
-        -- Try to fetch the file from GitHub
+        -- Try to fetch the file
         local suc, res = pcall(function()
-            return game:HttpGet("https://raw.githubusercontent.com/"..repo.."/"..commit.."/"..filename, true)
+            return game:HttpGet(url, true)
         end)
 
-        -- If the request fails, print the error and stop
+        -- If it fails, print error
         if not suc or res == "404: Not Found" or res == "" then
             warn("Failed to download: " .. filename .. " | Error: " .. tostring(res))
             return
-        end
-
-        -- Add watermark for cache clearing
-        if path:find(".lua") then
-            res = "--This watermark is used to delete the file if it's cached, remove it to make the file persist after Vape updates.\n" .. res
         end
 
         -- Save the file
         writefile(path, res)
     end
     return (func or readfile)(path)
-end
-
-for _, folder in {'newvape', 'newvape/games', 'newvape/profiles', 'newvape/assets', 'newvape/libraries', 'newvape/guis'} do
-	if not isfolder(folder) then
-		makefolder(folder)
-	end
 end
 
 if not shared.VapeDeveloper then
