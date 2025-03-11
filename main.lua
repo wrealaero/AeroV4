@@ -1,5 +1,3 @@
---This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
-
 repeat task.wait() until game:IsLoaded()
 if shared.vape then shared.vape:Uninject() end
 
@@ -31,41 +29,19 @@ end
 local playersService = cloneref(game:GetService('Players'))
 
 local function downloadFile(path, func)
-    if not isfile(path) then
-        local repo = "QP-Offcial/VapeV4ForRoblox"  -- Default repo
-        local filename = path:gsub("newvape/", "")
-
-        -- Override repo for specific files
-        if filename == "main.lua" or filename == "newmainscript.lua" or filename == "universal.lua" then
-            repo = "wrealaero/AeroV4"  -- Your GitHub
-        end
-
-        -- Check if commit.txt exists; if not, use "main"
-        local commit = isfile("newvape/profiles/commit.txt") and readfile("newvape/profiles/commit.txt") or "main"
-
-        -- Debugging message
-        print("Downloading: " .. filename .. " from " .. repo .. " (commit: " .. commit .. ")")
-
-        -- Try to fetch the file from GitHub
-        local suc, res = pcall(function()
-            return game:HttpGet("https://raw.githubusercontent.com/"..repo.."/"..commit.."/"..filename, true)
-        end)
-
-        -- If the request fails, print the error and stop
-        if not suc or res == "404: Not Found" or res == "" then
-            warn("Failed to download: " .. filename .. " | Error: " .. tostring(res))
-            return
-        end
-
-        -- Add watermark for cache clearing
-        if path:find(".lua") then
-            res = "--This watermark is used to delete the file if it's cached, remove it to make the file persist after Vape updates.\n" .. res
-        end
-
-        -- Save the file
-        writefile(path, res)
-    end
-    return (func or readfile)(path)
+	if not isfile(path) then
+		local suc, res = pcall(function()
+			return game:HttpGet('https://raw.githubusercontent.com/wrealaero/AeroV4/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
+		end)
+		if not suc or res == '404: Not Found' then
+			error(res)
+		end
+		if path:find('.lua') then
+			res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
+		end
+		writefile(path, res)
+	end
+	return (func or readfile)(path)
 end
 
 local function finishLoading()
@@ -87,7 +63,7 @@ local function finishLoading()
 				if shared.VapeDeveloper then
 					loadstring(readfile('newvape/loader.lua'), 'loader')()
 				else
-					loadstring(game:HttpGet('https://raw.githubusercontent.com/QP-Offcial/VapeV4ForRoblox/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true), 'loader')()
+					loadstring(game:HttpGet('https://raw.githubusercontent.com/wrealaero/AeroV4/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true), 'loader')()
 				end
 			]]
 			if shared.VapeDeveloper then
@@ -118,42 +94,16 @@ if not isfolder('newvape/assets/'..gui) then
 	makefolder('newvape/assets/'..gui)
 end
 vape = loadstring(downloadFile('newvape/guis/'..gui..'.lua'), 'gui')()
--- shared.vape = vape
-
-local XFunctions = loadstring(downloadFile('newvape/libraries/XFunctions.lua'), 'XFunctions')()
-XFunctions:SetGlobalData('XFunctions', XFunctions)
-XFunctions:SetGlobalData('vape', vape)
-
-local PerformanceModule = loadstring(downloadFile('newvape/libraries/performance.lua'), 'Performance')()
-XFunctions:SetGlobalData('Performance', PerformanceModule)
-
-local utils_functions = loadstring(downloadFile('newvape/libraries/utils.lua'), 'Utils')()
-for i: (any), v: (...any) -> (...any) in utils_functions do --> sideloads all render global utility functions from libraries/utils.lua
-    getfenv()[i] = v;
-end;
-
-getgenv().InfoNotification = function(title, msg, dur)
-	warn('info', tostring(title), tostring(msg), tostring(dur))
-	vape:CreateNotification(title, msg, dur)
-end
-getgenv().warningNotification = function(title, msg, dur)
-	warn('warn', tostring(title), tostring(msg), tostring(dur))
-	vape:CreateNotification(title, msg, dur, 'warning')
-end
-getgenv().errorNotification = function(title, msg, dur)
-	warn("error", tostring(title), tostring(msg), tostring(dur))
-	vape:CreateNotification(title, msg, dur, 'alert')
-end
+shared.vape = vape
 
 if not shared.VapeIndependent then
 	loadstring(downloadFile('newvape/games/universal.lua'), 'universal')()
-	loadstring(downloadFile('newvape/games/modules.lua'), 'modules')()
 	if isfile('newvape/games/'..game.PlaceId..'.lua') then
 		loadstring(readfile('newvape/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(...)
 	else
 		if not shared.VapeDeveloper then
 			local suc, res = pcall(function()
-				return game:HttpGet('https://raw.githubusercontent.com/QP-Offcial/VapeV4ForRoblox/'..readfile('newvape/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
+				return game:HttpGet('https://raw.githubusercontent.com/wrealaero/AeroV4/'..readfile('newvape/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
 			end)
 			if suc and res ~= '404: Not Found' then
 				loadstring(downloadFile('newvape/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(...)
@@ -165,5 +115,3 @@ else
 	vape.Init = finishLoading
 	return vape
 end
-
-shared.VapeFullyLoaded = true
