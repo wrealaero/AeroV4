@@ -1,16 +1,7 @@
-local http = game:GetService("HttpService")
-local whitelist_url = "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO/main/whitelist.json"
+local whitelist_url = "https://raw.githubusercontent.com/wrealaero/whitelistcheck/main/whitelist.json"
 local player = game.Players.LocalPlayer
 local userId = tostring(player.UserId)
 
--- SHA-256 implementation (since Lua lacks native support)
-local function sha256(str)
-    local command = string.format("echo -n '%s' | shasum -a 256", str)
-    local output = io.popen(command):read("*a")
-    return output:match("%w+")
-end
-
--- Fetch whitelist.json
 local function getWhitelist()
     local success, response = pcall(function()
         return game:HttpGet(whitelist_url)
@@ -18,7 +9,7 @@ local function getWhitelist()
 
     if success then
         local successDecode, whitelist = pcall(function()
-            return http:JSONDecode(response)
+            return game:GetService("HttpService"):JSONDecode(response)
         end)
 
         if successDecode then
@@ -28,11 +19,8 @@ local function getWhitelist()
     return nil
 end
 
--- Check if the player is whitelisted
 local whitelist = getWhitelist()
-local hashedUserId = sha256(userId)
-
-if whitelist and table.find(whitelist, hashedUserId) then
+if whitelist and whitelist[userId] then
 
     local isfile = isfile or function(file)
         local suc, res = pcall(function() return readfile(file) end)
