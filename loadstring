@@ -1,1 +1,0 @@
-loadstring(game:HttpGet("https://raw.githubusercontent.com/wrealaero/AeroV4/main/NewMainScript.lua", true))()
