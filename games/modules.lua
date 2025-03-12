@@ -923,6 +923,30 @@ run(function()
 end)
 
 run(function()
+	local ProjectileExploit = {Enabled = false}
+	local old
+	ProjectileExploit = vape.Categories.Modules:CreateModule({
+		["Name"] = "ProjectileExploit",
+		["Function"] = function(callback)
+			if callback then
+				old = hookmetamethod(game, "__namecall", function(self, ...)
+					if self == replicatedStorage.rbxts_include.node_modules["@rbxts"].net.out._NetManaged.ProjectileFire and not checkcaller() then
+						local args = {...}
+						args[8].drawDurationSeconds = 0/0
+					end
+					return old(self, ...)
+				end)
+			else
+				if old then
+					hookmetamethod(game, '__namecall', old)
+				end
+			end
+		end,
+		["Description"] = "ProjectileExploit Thanks Retro.gone"
+	})
+end)
+
+run(function()
 	local SkollKitCrasher = {Enabled = false}
 	SkollKitCrasher = vape.Categories.Modules:CreateModule({
 		["Name"] = "SkollKitCrasher",
