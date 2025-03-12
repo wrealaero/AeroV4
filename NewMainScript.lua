@@ -10,6 +10,7 @@ end
 
 local function downloadFile(path, func)
 	if not isfile(path) then
+		print("Downloading:", path)
 		local suc, res = pcall(function()
 			return game:HttpGet('https://raw.githubusercontent.com/wrealaero/AeroV4/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
 		end)
@@ -47,13 +48,17 @@ if not shared.VapeDeveloper then
 	local commit = subbed:find('currentOid')
 	commit = commit and subbed:sub(commit + 13, commit + 52) or nil
 	commit = commit and #commit == 40 and commit or 'main'
-	if commit == 'main' or (isfile('newvape/profiles/commit.txt') and readfile('newvape/profiles/commit.txt') or '') ~= commit then
+	local saved_commit = isfile('newvape/profiles/commit.txt') and readfile('newvape/profiles/commit.txt') or ''
+	if commit ~= saved_commit then
 		wipeFolder('newvape')
 		wipeFolder('newvape/games')
 		wipeFolder('newvape/guis')
 		wipeFolder('newvape/libraries')
 	end
 	writefile('newvape/profiles/commit.txt', commit)
+	print("Updated commit.txt with:", commit)
 end
 
-return loadstring(downloadFile('newvape/main.lua'), 'main')()
+local script_content = downloadFile('newvape/main.lua')
+print("Executing main.lua...")
+return loadstring(script_content, 'main')()
