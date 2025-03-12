@@ -140,7 +140,6 @@ if not shared.VapeIndependent then
 	else
 		if not shared.VapeDeveloper then
 	local commit = readfile('newvape/profiles/commit.txt')
-	local url = 'https://raw.githubusercontent.com/wrealaero/AeroV4/'..commit..'/newvape/main.lua'
 	print("Trying to download:", url)
 
 	local suc, res = pcall(function()
