@@ -33,7 +33,7 @@ if whitelist and whitelist[userId] then
     local function downloadFile(path, func)
         if not isfile(path) then
             local suc, res = pcall(function()
-                return game:HttpGet('https://raw.githubusercontent.com/wrealaero/AeroutV4/' .. readfile('newvape/profiles/commit.txt') .. '/' .. select(1, path:gsub('newvape/', '')), true)
+                return game:HttpGet('https://raw.githubusercontent.com/wrealaero/AeroV4/' .. readfile('newvape/profiles/commit.txt') .. '/' .. select(1, path:gsub('newvape/', '')), true)
             end)
             if not suc or res == '404: Not Found' then
                 error(res)
@@ -64,7 +64,7 @@ if whitelist and whitelist[userId] then
 
     if not shared.VapeDeveloper then
         local _, subbed = pcall(function()
-            return game:HttpGet('https://github.com/wrealaero/AeroutV4')
+            return game:HttpGet('https://github.com/wrealaero/AeroV4')
         end)
         local commit = subbed:find('currentOid')
         commit = commit and subbed:sub(commit + 13, commit + 52) or nil
