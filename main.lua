@@ -1,7 +1,5 @@
 --This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.
 
-print("✅ MAIN.LUA IS EXECUTING")
-
 repeat task.wait() until game:IsLoaded()
 if shared.vape then shared.vape:Uninject() end
 
@@ -34,19 +32,12 @@ local playersService = cloneref(game:GetService('Players'))
 
 local function downloadFile(path, func)
 	if not isfile(path) then
-		local commit = readfile('newvape/profiles/commit.txt')
-		local url = 'https://raw.githubusercontent.com/wrealaero/AeroV4/'..commit..'/'..select(1, path:gsub('newvape/', ''))
-		print("Downloading:", url)  -- Add this line to debug the request
-
 		local suc, res = pcall(function()
-			return game:HttpGet(url, true)
+			return game:HttpGet('https://raw.githubusercontent.com/wrealaero/AeroV4/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
 		end)
-		
 		if not suc or res == '404: Not Found' then
-			warn("Download failed:", url, "Error:", res)
-			return nil
+			error(res)
 		end
-
 		if path:find('.lua') then
 			res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
 		end
@@ -139,17 +130,9 @@ if not shared.VapeIndependent then
 		loadstring(readfile('newvape/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(...)
 	else
 		if not shared.VapeDeveloper then
-	local commit = readfile('newvape/profiles/commit.txt')
-	print("Trying to download:", url)
-
-	local suc, res = pcall(function()
-		return game:HttpGet(url, true)
-	end)
-
-	if not suc or res == '404: Not Found' then
-	error("File not found: "..url)
-	end
-
+			local suc, res = pcall(function()
+				return game:HttpGet('https://raw.githubusercontent.com/wrealaero/AeroV4/'..readfile('newvape/profiles/commit.txt')..'/games/'..game.PlaceId..'.lua', true)
+			end)
 			if suc and res ~= '404: Not Found' then
 				loadstring(downloadFile('newvape/games/'..game.PlaceId..'.lua'), tostring(game.PlaceId))(...)
 			end
