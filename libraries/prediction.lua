@@ -188,11 +188,15 @@ end
 
 function module.SolveTrajectory(origin, projectileSpeed, gravity, targetPos, targetVelocity, playerGravity, playerHeight, playerJump, params)
 	local disp = targetPos - origin
+	local leadFactor = (disp.Magnitude / projectileSpeed) * 0.1
+	targetPos = targetPos + (targetVelocity * leadFactor)
+	local pingCompensation = 0.1 -- Adjust based on server ping
+	targetPos = targetPos + (targetVelocity * pingCompensation)
 	local p, q, r = targetVelocity.X, targetVelocity.Y, targetVelocity.Z
 	local h, j, k = disp.X, disp.Y, disp.Z
-	local l = -.5 * gravity
+	local l = -0.5 * (gravity or workspace.Gravity)
 	--attemped gravity calculation, may return to it in the future.
-	if math.abs(q) > 0.01 and playerGravity and playerGravity > 0 then
+	if math.abs(q) > 0.01 and playerGravity and playerGravity > 0 and playerJump then
 		local estTime = (disp.Magnitude / projectileSpeed)
 		local origq = q
 		local origj = j
@@ -200,7 +204,7 @@ function module.SolveTrajectory(origin, projectileSpeed, gravity, targetPos, tar
 			q -= (.5 * playerGravity) * estTime
 			local velo = targetVelocity * 0.016
 			local ray = workspace.Raycast(workspace, Vector3.new(targetPos.X, targetPos.Y, targetPos.Z), Vector3.new(velo.X, (q * estTime) - playerHeight, velo.Z), params)
-			if ray then
+			if ray and (ray.Position - targetPos).Magnitude < playerHeight then
 				local newTarget = ray.Position + Vector3.new(0, playerHeight, 0)
 				estTime -= math.sqrt(((targetPos - newTarget).Magnitude * 2) / playerGravity)
 				targetPos = newTarget
@@ -221,14 +225,15 @@ function module.SolveTrajectory(origin, projectileSpeed, gravity, targetPos, tar
 		j*j + h*h + k*k
 	)
 	if solutions then
-		local posRoots = table.create(2)
-		for _, v in solutions do --filter out the negative roots
+		local posRoots = {}
+		for _, v in ipairs(solutions) do -- Prevent nil errors
 			if v > 0 then
 				table.insert(posRoots, v)
 			end
 		end
-		posRoots[1] = posRoots[1]
-		if posRoots[1] then
+		table.sort(posRoots)
+		local t = posRoots[1]
+		if t then
 			local t = posRoots[1]
 			local d = (h + p*t)/t
 			local e = (j + q*t - l*t*t)/t
